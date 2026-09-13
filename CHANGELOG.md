@@ -1,5 +1,12 @@
 # @osuki-dev/muqun-theme
 
+## 1.8.1
+
+### Patch Changes
+
+- [#21](https://github.com/osuki-dev/muqun-theme-cli/pull/21) [`26d3d11`](https://github.com/osuki-dev/muqun-theme-cli/commit/26d3d11c362e7855f0e7f85e92832d56bba1e99b) Thanks [@ryuhzk](https://github.com/ryuhzk)! - The vendored agent skill is 1.4.0: every theme is asked for a 1024x640 preview
+  cover, light on the left half and dark on the right, named in `preview`.
+
 ## 1.8.0
 
 ### Minor Changes
