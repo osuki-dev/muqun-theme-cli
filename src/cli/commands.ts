@@ -168,15 +168,31 @@ export const contrast = (target: string): Effect.Effect<Outcome, CommandError, E
     return problems ? bad : ok;
   });
 
-export const pack = (
-  target: string,
-  output?: string,
-  optimize = true
-): Effect.Effect<Outcome, CommandError, Env> =>
+export type BuiltPackage =
+  | {
+      readonly ok: true;
+      readonly manifest: ThemeManifest;
+      readonly bytes: Uint8Array;
+      readonly assets: number;
+    }
+  | { readonly ok: false };
+
+/**
+ * Everything `pack` does short of writing the file: read, verify, optimise,
+ * zip, and unpack the result again to prove it round-trips.
+ *
+ * Shared by `pack`, by `build` (every source in a repository) and by
+ * `check --sources`, which proves a source packs without keeping the result.
+ * `quiet` drops the per-image report and the warnings, for callers that have
+ * already printed `validate`'s view of the same theme.
+ */
+export const buildPackage = (
+  dir: string,
+  optimize = true,
+  quiet = false
+): Effect.Effect<BuiltPackage, CommandError, Env> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
-    // `pack grand-voyage` inside a themes repository means `pack src/grand-voyage`.
-    const dir = yield* resolveThemeDir(target);
     const root = path.resolve(dir);
     const { manifest: sourceManifest, raw: sourceRaw } = yield* readManifestFile(
       path.join(root, 'theme.json')
@@ -184,7 +200,7 @@ export const pack = (
     const sourceAssets = yield* declaredAssets(root, sourceManifest);
 
     const extra = yield* undeclaredFiles(root, sourceManifest);
-    if (extra.length)
+    if (extra.length && !quiet)
       yield* out(
         dim(
           `Leaving out ${extra.length} file(s) the manifest does not declare: ` +
@@ -212,7 +228,7 @@ export const pack = (
     if (sourceErrors.length) {
       yield* out(red('refusing to pack:'));
       for (const line of issueLines(sourceErrors)) yield* out(line);
-      return bad;
+      return { ok: false } as const;
     }
 
     let manifest = sourceManifest;
@@ -221,7 +237,7 @@ export const pack = (
       const optimized = yield* optimizeAssets(sourceManifest, sourceAssets);
       manifest = optimized.manifest;
       assets = optimized.assets;
-      for (const line of optimizationLines(optimized.reports)) yield* out(line);
+      if (!quiet) for (const line of optimizationLines(optimized.reports)) yield* out(line);
     }
 
     /*
@@ -236,17 +252,13 @@ export const pack = (
     const postWarnings = verifyAssets(manifest, assets).issues.filter(
       (issue) => issue.severity === 'warning' && !issue.message.includes('placeholder')
     );
-    for (const line of issueLines([...placeholderWarnings, ...postWarnings])) yield* out(line);
+    if (!quiet)
+      for (const line of issueLines([...placeholderWarnings, ...postWarnings])) yield* out(line);
 
     const bytes = yield* Effect.try({
       try: () => packTheme({ manifest, assets }),
       catch: (error) => fail(error instanceof Error ? error.message : String(error)),
     });
-    // Without --out, a repository gets dist/<id>.muqun-theme and anywhere else
-    // gets <id>.muqun-theme beside the author.
-    const file = output ?? (yield* packageFileFor(manifest.id));
-    const written = path.resolve(file);
-    yield* writeFile(written, bytes);
 
     // Round trip through the importer the phone runs, so "it packed" and "it
     // installs" are the same claim rather than two hopeful ones.
@@ -258,9 +270,27 @@ export const pack = (
     if (Object.keys(back.assets).length !== Object.keys(assets).length)
       return yield* Effect.fail(fail('Round trip lost an asset.'));
 
+    return { ok: true, manifest, bytes, assets: Object.keys(assets).length } as const;
+  });
+
+export const pack = (
+  target: string,
+  output?: string,
+  optimize = true
+): Effect.Effect<Outcome, CommandError, Env> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    // `pack grand-voyage` inside a themes repository means `pack src/grand-voyage`.
+    const dir = yield* resolveThemeDir(target);
+    const built = yield* buildPackage(dir, optimize);
+    if (!built.ok) return bad;
+    // Without --out, a repository gets dist/<id>.muqun-theme and anywhere else
+    // gets <id>.muqun-theme beside the author.
+    const file = output ?? (yield* packageFileFor(built.manifest.id));
+    yield* writeFile(path.resolve(file), built.bytes);
     yield* out(
-      `${green('packed')} ${file}  ${size(bytes.length)}  ` +
-        `${Object.keys(assets).length} asset(s)  ${dim('round trip ok')}`
+      `${green('packed')} ${file}  ${size(built.bytes.length)}  ` +
+        `${built.assets} asset(s)  ${dim('round trip ok')}`
     );
     yield* out(dim(`  package limit ${size(THEME_LIMITS.packageBytes)}`));
     return ok;
@@ -357,44 +387,71 @@ export const init = (
     return ok;
   });
 
+const notARepo = (rootArg: string) =>
+  fail(`${rootArg} is not a themes repository: expected ${SRC_DIR}/ and ${DIST_DIR}/ directories.`);
+
+const problemLine = (message: string): Effect.Effect<void, never, Output> =>
+  out(`  ${red('error  ')} ${message}`);
+
+const sortedNames = (dir: string) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const names = yield* fs.readDirectory(dir).pipe(Effect.orElseSucceed(() => [] as string[]));
+    return [...names].sort();
+  });
+
+/** The ids of every source: a directory under `src/` holding a `theme.json`. */
+const listSources = (repo: { readonly src: string }) =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const ids: string[] = [];
+    for (const name of yield* sortedNames(repo.src))
+      if (yield* fs.exists(path.join(repo.src, name, 'theme.json')).pipe(Effect.orElseSucceed(() => false)))
+        ids.push(name);
+    return ids;
+  });
+
+/** The file names of every package in `dist/`. */
+const listPackages = (repo: { readonly dist: string }) =>
+  Effect.map(sortedNames(repo.dist), (names) => names.filter((name) => name.endsWith('.muqun-theme')));
+
 /**
  * Every theme in a themes repository, and whether `src/` and `dist/` agree.
  *
  * The repository convention is small -- a source in `src/<id>/`, its package
- * in `dist/<id>.muqun-theme` -- and this is the whole of enforcing it: each
- * source validates, each package validates, a source's directory name is its
- * id, each has the other, and the package carries the source's version. A
+ * in `dist/<id>.muqun-theme`, the catalogue in `index.json` -- and this is the
+ * whole of enforcing it: each source validates, each package validates, a
+ * source's directory name is its id, each has the other, the package carries
+ * the source's version, and the catalogue is what `dist/` would generate. A
  * repository that also vendors the agent skill is told when that copy has
  * fallen behind the CLI checking it; that is a warning, because a stale skill
  * misinforms an agent but does not break a theme.
  *
+ * With `sourcesOnly`, `dist/` and `index.json` are somebody else's job -- CI
+ * builds them after a merge -- so a pull request holding only `src/<id>/` is
+ * checked for the one thing it can be: every source validates and packs.
+ *
  * One command, so the repository needs no script of its own and CI runs
  * exactly what a contributor runs.
  */
-export const check = (rootArg = '.'): Effect.Effect<Outcome, CommandError, Env> =>
+export const check = (
+  rootArg = '.',
+  sourcesOnly = false
+): Effect.Effect<Outcome, CommandError, Env> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const repo = yield* detectRepo(rootArg);
-    if (!repo)
-      return yield* Effect.fail(
-        fail(
-          `${rootArg} is not a themes repository: expected ${SRC_DIR}/ and ${DIST_DIR}/ directories.`
-        )
-      );
+    if (!repo) return yield* Effect.fail(notARepo(rootArg));
 
     let failed = false;
     const problem = (message: string) =>
       Effect.gen(function* () {
         failed = true;
-        yield* out(`  ${red('error  ')} ${message}`);
+        yield* problemLine(message);
       });
     const exists = (file: string) => fs.exists(file).pipe(Effect.orElseSucceed(() => false));
-    const list = (dir: string) =>
-      fs.readDirectory(dir).pipe(
-        Effect.orElseSucceed(() => [] as string[]),
-        Effect.map((names) => [...names].sort())
-      );
 
     const skillFile = path.join(repo.root, SKILL_PATH);
     if (yield* exists(skillFile)) {
@@ -408,10 +465,8 @@ export const check = (rootArg = '.'): Effect.Effect<Outcome, CommandError, Env> 
         );
     }
 
-    const sourceIds: string[] = [];
-    for (const name of yield* list(repo.src))
-      if (yield* exists(path.join(repo.src, name, 'theme.json'))) sourceIds.push(name);
-    const packages = (yield* list(repo.dist)).filter((name) => name.endsWith('.muqun-theme'));
+    const sourceIds = yield* listSources(repo);
+    const packages = yield* listPackages(repo);
 
     /** `validate`'s report under a heading, surviving a manifest that will not parse. */
     const report = (label: string, target: string) =>
@@ -434,6 +489,22 @@ export const check = (rootArg = '.'): Effect.Effect<Outcome, CommandError, Env> 
       if (source && source.id !== id)
         yield* problem(`theme id "${source.id}" does not match its directory ${SRC_DIR}/${id}/`);
 
+      if (sourcesOnly) {
+        // Prove it packs, and keep nothing: CI builds dist/ after the merge.
+        if (!source) continue;
+        const built = yield* buildPackage(path.join(repo.src, id), true, true).pipe(
+          Effect.catchTag('CommandError', (error) =>
+            Effect.gen(function* () {
+              yield* problem(error.message);
+              return { ok: false } as const;
+            })
+          )
+        );
+        if (built.ok) yield* out(dim(`  packs to ${size(built.bytes.length)}, ${built.assets} asset(s)`));
+        else failed = true;
+        continue;
+      }
+
       const file = packageName(id);
       if (!packages.includes(file)) {
         yield* problem(`${DIST_DIR}/${file} is missing -- run: muqun-theme pack ${id}`);
@@ -452,26 +523,28 @@ export const check = (rootArg = '.'): Effect.Effect<Outcome, CommandError, Env> 
         );
     }
 
-    for (const file of packages) {
-      const id = file.slice(0, -'.muqun-theme'.length);
-      if (sourceIds.includes(id)) continue;
-      yield* out(bold(`${DIST_DIR}/${file}`));
-      yield* problem(`has no source in ${SRC_DIR}/${id}/ -- every package is built from a source here`);
-    }
+    if (!sourcesOnly) {
+      for (const file of packages) {
+        const id = file.slice(0, -'.muqun-theme'.length);
+        if (sourceIds.includes(id)) continue;
+        yield* out(bold(`${DIST_DIR}/${file}`));
+        yield* problem(`has no source in ${SRC_DIR}/${id}/ -- every package is built from a source here`);
+      }
 
-    // The catalogue is generated from dist/, so "current" is a byte comparison.
-    // A package that would not unpack was already reported above; skip the
-    // comparison then rather than blaming the index for it.
-    const expected = yield* buildIndex(repo).pipe(
-      Effect.catchTag('CommandError', () => Effect.succeed(undefined))
-    );
-    if (expected) {
-      yield* out(bold(INDEX_FILE));
-      const current = yield* fs.readFileString(path.join(repo.root, INDEX_FILE)).pipe(Effect.option);
-      if (current._tag === 'None') yield* problem(`${INDEX_FILE} is missing -- run: muqun-theme index`);
-      else if (current.value !== renderIndex(expected))
-        yield* problem(`${INDEX_FILE} does not match ${DIST_DIR}/ -- run: muqun-theme index`);
-      else yield* out(dim(`  current (${expected.themes.length} theme(s))`));
+      // The catalogue is generated from dist/, so "current" is a byte comparison.
+      // A package that would not unpack was already reported above; skip the
+      // comparison then rather than blaming the index for it.
+      const expected = yield* buildIndex(repo).pipe(
+        Effect.catchTag('CommandError', () => Effect.succeed(undefined))
+      );
+      if (expected) {
+        yield* out(bold(INDEX_FILE));
+        const current = yield* fs.readFileString(path.join(repo.root, INDEX_FILE)).pipe(Effect.option);
+        if (current._tag === 'None') yield* problem(`${INDEX_FILE} is missing -- run: muqun-theme index`);
+        else if (current.value !== renderIndex(expected))
+          yield* problem(`${INDEX_FILE} does not match ${DIST_DIR}/ -- run: muqun-theme index`);
+        else yield* out(dim(`  current (${expected.themes.length} theme(s))`));
+      }
     }
 
     yield* out('');
@@ -602,5 +675,72 @@ export const list = (options: ListOptions): Effect.Effect<Outcome, CommandError,
       );
     if (remote)
       yield* out(dim(`  packages: https://github.com/${options.repo}/tree/${options.ref}/${DIST_DIR}`));
+    return ok;
+  });
+
+/**
+ * Pack every source and regenerate the catalogue: `dist/` and `index.json`
+ * from `src/`, in one step.
+ *
+ * This is what CI runs after a merge, so a pull request only ever carries a
+ * source. `dist/` is made to mirror `src/` exactly -- a package whose source
+ * is gone is removed -- and the index is written last, from the result, so it
+ * cannot describe anything that is not there. A source that will not pack
+ * fails the build before the index is touched.
+ */
+export const build = (rootArg = '.'): Effect.Effect<Outcome, CommandError, Env> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const repo = yield* detectRepo(rootArg);
+    if (!repo) return yield* Effect.fail(notARepo(rootArg));
+
+    let failed = false;
+    const kept = new Set<string>();
+    for (const id of yield* listSources(repo)) {
+      yield* out(bold(`${SRC_DIR}/${id}`));
+      const built = yield* buildPackage(path.join(repo.src, id), true).pipe(
+        Effect.catchTag('CommandError', (error) =>
+          Effect.gen(function* () {
+            yield* problemLine(error.message);
+            return { ok: false } as const;
+          })
+        )
+      );
+      if (!built.ok) {
+        failed = true;
+        continue;
+      }
+      if (built.manifest.id !== id) {
+        yield* problemLine(`theme id "${built.manifest.id}" does not match its directory ${SRC_DIR}/${id}/`);
+        failed = true;
+        continue;
+      }
+      const file = packageName(id);
+      yield* writeFile(path.join(repo.dist, file), built.bytes);
+      kept.add(file);
+      yield* out(
+        `  ${green('packed')} ${DIST_DIR}/${file}  ${size(built.bytes.length)}  ${built.assets} asset(s)`
+      );
+    }
+
+    for (const file of yield* listPackages(repo)) {
+      if (kept.has(file)) continue;
+      yield* fs
+        .remove(path.join(repo.dist, file))
+        .pipe(Effect.mapError(() => fail(`Could not remove ${DIST_DIR}/${file}.`)));
+      yield* out(dim(`  removed ${DIST_DIR}/${file}: it has no source`));
+    }
+
+    yield* out('');
+    if (failed) {
+      yield* out(red('build failed'));
+      return bad;
+    }
+    const catalogue = yield* buildIndex(repo);
+    yield* writeText(path.join(repo.root, INDEX_FILE), renderIndex(catalogue));
+    yield* out(
+      `${green('built')} ${catalogue.themes.length} theme(s) ${dim(`into ${DIST_DIR}/ and ${INDEX_FILE}`)}`
+    );
     return ok;
   });

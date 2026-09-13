@@ -156,9 +156,27 @@ const check = Command.make('check', {
     Argument.withDescription('a themes repository: a directory holding src/ and dist/ (default: .)'),
     Argument.optional
   ),
+  sources: Flag.Boolean('sources').pipe(
+    Flag.withDescription(
+      'check only that every source validates and packs; dist/ and index.json are built by CI'
+    ),
+    Flag.withDefault(false)
+  ),
 }).pipe(
   Command.withDescription('every theme in a themes repository, and that src/ and dist/ agree'),
-  Command.withHandler(({ root }) => runOutcome(commands.check(Option.getOrUndefined(root))))
+  Command.withHandler(({ root, sources }) =>
+    runOutcome(commands.check(Option.getOrUndefined(root), sources))
+  )
+);
+
+const build = Command.make('build', {
+  root: Argument.String('root').pipe(
+    Argument.withDescription('a themes repository: a directory holding src/ and dist/ (default: .)'),
+    Argument.optional
+  ),
+}).pipe(
+  Command.withDescription('pack every source into dist/ and regenerate index.json'),
+  Command.withHandler(({ root }) => runOutcome(commands.build(Option.getOrUndefined(root))))
 );
 
 const skill = Command.make('skill', {
@@ -225,7 +243,7 @@ const list = Command.make('list', {
 
 const root = Command.make('muqun-theme').pipe(
   Command.withDescription('build and check Muqun themes'),
-  Command.withSubcommands([init, validate, contrast, pack, unpack, check, index, list, skill])
+  Command.withSubcommands([init, validate, contrast, pack, unpack, check, build, index, list, skill])
 );
 
 const AppLayer = Layer.mergeAll(

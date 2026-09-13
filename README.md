@@ -49,7 +49,8 @@ muqun-theme contrast <target>            opacity floors and the colours that set
 muqun-theme pack <dir|id> [--out file]   build a .muqun-theme, optimising artwork to WebP
              [--no-optimize]             ...keeping artwork exactly as authored
 muqun-theme unpack <file> [--out dir]    extract a package for editing
-muqun-theme check [root]                 every theme in a themes repository, src/ and dist/ agreeing
+muqun-theme check [root] [--sources]     every theme in a themes repository, src/ and dist/ agreeing
+muqun-theme build [root]                 pack every source into dist/ and regenerate index.json
 muqun-theme index [root]                 write index.json, the catalogue of every packed theme
 muqun-theme list [--search q] [--page n] the published themes, from GitHub, searched and paged
 muqun-theme skill [--out file]           the agent authoring skill, printed or written to a file
@@ -412,11 +413,20 @@ configured with it. Run inside such a directory:
 - `init <id>` writes `src/<id>/`, and refuses to overwrite one that exists.
 - `pack <id>` reads `src/<id>/` and writes `dist/<id>.muqun-theme`.
 - `validate <id>` and `contrast <id>` accept the bare id.
-- `index` rewrites `index.json` from `dist/`, and `check` fails until it has.
+- `index` rewrites `index.json` from `dist/`; `build` packs every source and
+  then does the same.
 
 Both directories are required, so an ordinary project with a `src/` of its own
-is never mistaken for one. [`osuki-dev/muqun-themes`](https://github.com/osuki-dev/muqun-themes)
-is laid out this way.
+is never mistaken for one.
+
+**Sources are reviewed; artefacts are built.** In
+[`osuki-dev/muqun-themes`](https://github.com/osuki-dev/muqun-themes) a pull
+request carries only `src/<id>/`, and CI runs `check --sources` on it. After
+the merge, CI runs `build` and publishes `dist/` and `index.json` to the
+`release` branch, rebuilt whole every time so binaries never accumulate in
+history. `list` and the website read from that branch. Nobody commits a
+package or an index by hand, and two themes landing at once cannot conflict
+over `index.json`.
 
 ### `check`
 
@@ -451,8 +461,34 @@ It warns, without failing, when the repository's vendored copy of the agent
 skill differs from the one this CLI carries. A stale skill misinforms an agent;
 it breaks no theme.
 
-One command, so a repository needs no script of its own and CI runs exactly
-what a contributor runs: `bunx @osuki-dev/muqun-theme check`.
+**`check --sources`** is the pull-request form: `dist/` and `index.json` are
+left to CI, so every source is validated and packed in memory to prove it can
+be, and nothing is kept. That is what a contributor runs before opening a PR,
+and exactly what CI runs on it.
+
+One command either way, so a repository needs no script of its own.
+
+### `build`
+
+Every source in `src/`, packed into `dist/`, then `index.json` regenerated from
+the result:
+
+```
+$ muqun-theme build
+src/grand-voyage
+  webp      scene-light      png 2.08 MiB -> 286.0 KiB (13%, q94) sha256 rewritten
+  …
+  packed dist/grand-voyage.muqun-theme  3.93 MiB  10 asset(s)
+  removed dist/old-theme.muqun-theme: it has no source
+
+built 1 theme(s) into dist/ and index.json
+```
+
+`dist/` is made to mirror `src/`: a package whose source is gone is removed.
+The index is written last, from what was actually produced, so it cannot list
+anything that is not there, and a source that will not pack fails the build
+before the index is touched. This is what CI runs after a merge; a contributor
+never needs to.
 
 ### `index`
 
@@ -485,22 +521,22 @@ The published themes, from GitHub:
 
 ```
 $ muqun-theme list --search sea
-2 theme(s) matching "sea"  page 1/1  https://raw.githubusercontent.com/osuki-dev/muqun-themes/main/index.json
+2 theme(s) matching "sea"  page 1/1  https://raw.githubusercontent.com/osuki-dev/muqun-themes/release/index.json
 grand-voyage  Grand Voyage  v1.0.0  by …  3.93 MiB
               A long horizon, warm brass and deep water.
               #warm #sea
 …
-  packages: https://github.com/osuki-dev/muqun-themes/tree/main/dist
+  packages: https://github.com/osuki-dev/muqun-themes/tree/release/dist
 ```
 
 `--search` is a case-insensitive substring over id, name, author, description
 and tags. `--page` and `--per-page` (default 20) page the result, and the
 footer names the next page when there is one. `--json` prints the same page as
 data, each entry carrying the `url` its package downloads from. `--repo` and
-`--ref` point at another repository or branch; `--from` reads a local file or
-any URL instead, which is how a repository lists itself before publishing and
-how the command is tested. A private repository is readable with
-`GITHUB_TOKEN` set.
+`--ref` point at another repository or branch (the default ref is `release`,
+where CI publishes the build); `--from` reads a local file or any URL instead,
+which is how a repository lists itself before publishing and how the command
+is tested. A private repository is readable with `GITHUB_TOKEN` set.
 
 ### `skill`
 
@@ -722,7 +758,7 @@ src/
     catalog.ts       index.json: built from dist/, read back for list, searched and paged
     skill.ts         the agent skill, inlined into the executable at build time
     format.ts        every printed line, as pure functions
-    commands.ts      the nine commands, as Effects
+    commands.ts      the ten commands, as Effects
     main.ts          argument parsing, help, exit codes
   cli.ts             the executable
 ```
