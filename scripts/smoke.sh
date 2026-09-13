@@ -29,12 +29,15 @@ bun "$CLI" pack grand-voyage
 bun "$CLI" validate grand-voyage
 bun "$CLI" index
 bun "$CLI" check
+# A declared preview is published beside the package by build, and check holds it there.
+bun -e 'const f = "src/grand-voyage/theme.json"; const m = JSON.parse(await Bun.file(f).text()); m.preview = "shell-light"; await Bun.write(f, JSON.stringify(m, null, 2))'
 bun "$CLI" build
 bun "$CLI" check
 bun "$CLI" list --from index.json
-bun "$CLI" list --from index.json --search voyage --json >/dev/null
+bun "$CLI" list --from index.json --search voyage --json | grep -q '"preview": "dist/previews/grand-voyage.webp"'
 test -f src/grand-voyage/theme.json
 test -f dist/grand-voyage.muqun-theme
+test -f dist/previews/grand-voyage.webp
 test -f index.json
 
 # preview runs until told to stop, so it goes in the background on a port

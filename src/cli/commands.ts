@@ -43,14 +43,19 @@ import { SKILL_TEXT, skillVersion } from './skill.js';
 import {
   DEFAULT_API,
   INDEX_FILE,
+  PREVIEWS_DIR,
+  buildCatalogue,
   buildIndex,
   indexUrl,
   packageUrl,
   parseIndex,
+  previewPath,
+  previewUrl,
   readIndexSource,
   renderIndex,
   selectPage,
   sourceDigest,
+  type PackagePreview,
 } from './catalog.js';
 import { sha256 } from '../digest.js';
 import {
@@ -519,6 +524,55 @@ const listPackages = (repo: { readonly dist: string }) =>
   Effect.map(sortedNames(repo.dist), (names) => names.filter((name) => name.endsWith('.muqun-theme')));
 
 /**
+ * Every file under `dist/previews/`, whatever it is.
+ *
+ * Nothing is filtered by extension, because the point of listing is to find
+ * what should not be there. `.gitkeep` is the one exception: a repository may
+ * hold the directory in git with it, and the R2 mirror leaves it out too.
+ */
+const listPreviews = (repo: { readonly dist: string }) =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const names = yield* sortedNames(path.join(repo.dist, PREVIEWS_DIR));
+    return names.filter((name) => name !== '.gitkeep');
+  });
+
+const sameBytes = (a: Uint8Array, b: Uint8Array): boolean =>
+  a.length === b.length && a.every((byte, index) => byte === b[index]);
+
+/**
+ * Make `dist/previews/` hold exactly the previews the catalogue names.
+ *
+ * A preview whose bytes are already on disk is left untouched, so a mirror
+ * that watches modification times sees only what changed; anything else in
+ * the directory -- a theme that dropped its `preview`, a source that is gone,
+ * a file that never belonged -- is removed.
+ */
+const syncPreviews = (
+  repo: { readonly dist: string },
+  previews: readonly PackagePreview[]
+): Effect.Effect<void, CommandError, Env> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const wanted = new Set(previews.map((preview) => preview.file));
+    for (const preview of previews) {
+      const file = path.join(repo.dist, PREVIEWS_DIR, preview.file);
+      const current = yield* fs.readFile(file).pipe(Effect.option);
+      if (current._tag === 'Some' && sameBytes(current.value, preview.bytes)) continue;
+      yield* writeFile(file, preview.bytes);
+      yield* out(dim(`  preview ${previewPath(preview.file)}  ${size(preview.bytes.length)}`));
+    }
+    for (const name of yield* listPreviews(repo)) {
+      if (wanted.has(name)) continue;
+      yield* fs
+        .remove(path.join(repo.dist, PREVIEWS_DIR, name))
+        .pipe(Effect.mapError(() => fail(`Could not remove ${previewPath(name)}.`)));
+      yield* out(dim(`  removed ${previewPath(name)}: no packed theme declares it`));
+    }
+  });
+
+/**
  * Every theme in a themes repository, and whether `src/` and `dist/` agree.
  *
  * The repository convention is small -- a source in `src/<id>/`, its package
@@ -636,16 +690,50 @@ export const check = (
       // The catalogue is generated from dist/, so "current" is a byte comparison.
       // A package that would not unpack was already reported above; skip the
       // comparison then rather than blaming the index for it.
-      const expected = yield* buildIndex(repo).pipe(
+      const expected = yield* buildCatalogue(repo).pipe(
         Effect.catchTag('CommandError', () => Effect.succeed(undefined))
       );
       if (expected) {
         yield* out(bold(INDEX_FILE));
         const current = yield* fs.readFileString(path.join(repo.root, INDEX_FILE)).pipe(Effect.option);
         if (current._tag === 'None') yield* problem(`${INDEX_FILE} is missing -- run: muqun-theme index`);
-        else if (current.value !== renderIndex(expected))
+        else if (current.value !== renderIndex(expected.index))
           yield* problem(`${INDEX_FILE} does not match ${DIST_DIR}/ -- run: muqun-theme index`);
-        else yield* out(dim(`  current (${expected.themes.length} theme(s))`));
+        else yield* out(dim(`  current (${expected.index.themes.length} theme(s))`));
+
+        // The previews are generated the same way and held to the same
+        // standard: each one the index names is there, byte for byte the
+        // image inside its package, and nothing else is.
+        const found = yield* listPreviews(repo);
+        if (expected.previews.length || found.length) {
+          yield* out(bold(`${DIST_DIR}/${PREVIEWS_DIR}/`));
+          let stale = false;
+          for (const preview of expected.previews) {
+            const file = previewPath(preview.file);
+            const bytes = yield* fs
+              .readFile(path.join(repo.dist, PREVIEWS_DIR, preview.file))
+              .pipe(Effect.option);
+            if (bytes._tag === 'None') {
+              stale = true;
+              yield* problem(`${file} is missing -- run: muqun-theme build`);
+            } else if (!sameBytes(bytes.value, preview.bytes)) {
+              stale = true;
+              yield* problem(
+                `${file} is not the preview inside ${DIST_DIR}/${packageName(preview.id)}` +
+                  ' -- run: muqun-theme build'
+              );
+            }
+          }
+          const wanted = new Set(expected.previews.map((preview) => preview.file));
+          for (const name of found) {
+            if (wanted.has(name)) continue;
+            stale = true;
+            yield* problem(
+              `${previewPath(name)} belongs to no packed theme with a preview -- run: muqun-theme build`
+            );
+          }
+          if (!stale) yield* out(dim(`  current (${expected.previews.length} preview(s))`));
+        }
       }
     }
 
@@ -716,7 +804,8 @@ export type ListOptions = {
  * points -- then everything else happens here, so the command stays usable
  * when the catalogue is long and works the same against a local file.
  * `--json` is the same page as data, each entry carrying the URL its package
- * downloads from, for scripts and for anything that renders it differently.
+ * downloads from -- and its preview image's, when it publishes one -- for
+ * scripts and for anything that renders it differently.
  */
 export const list = (options: ListOptions): Effect.Effect<Outcome, CommandError, Env> =>
   Effect.gen(function* () {
@@ -727,7 +816,8 @@ export const list = (options: ListOptions): Effect.Effect<Outcome, CommandError,
     if (options.json) {
       const entries = page.entries.map((entry) => {
         const url = packageUrl(source, entry);
-        return { ...entry, ...(url && { url }) };
+        const preview = previewUrl(source, entry);
+        return { ...entry, ...(url && { url }), ...(preview && { previewUrl: preview }) };
       });
       yield* out(JSON.stringify({ source, ...page, entries }, null, 2));
       return page.page <= page.pages ? ok : bad;
@@ -786,7 +876,9 @@ export const list = (options: ListOptions): Effect.Effect<Outcome, CommandError,
  * source. `dist/` is made to mirror `src/` exactly -- a package whose source
  * is gone is removed -- and the index is written last, from the result, so it
  * cannot describe anything that is not there. A source that will not pack
- * fails the build before the index is touched.
+ * fails the build before the index is touched. Each theme that declares a
+ * `preview` also gets that image copied out of its package into
+ * `dist/previews/<id>.<ext>`, where a gallery can fetch it on its own.
  *
  * Incremental by default. When the previous build is present -- `dist/` and
  * an `index.json` carrying source digests -- a source whose digest has not
@@ -879,11 +971,19 @@ export const build = (rootArg = '.', force = false): Effect.Effect<Outcome, Comm
       yield* out(red('build failed'));
       return bad;
     }
-    const catalogue = yield* buildIndex(repo);
-    yield* writeText(path.join(repo.root, INDEX_FILE), renderIndex(catalogue));
+    // The previews, then the index, both from what dist/ now holds: a preview
+    // is never named before it is on disk, and never left behind after its
+    // theme stops declaring one.
+    const catalogue = yield* buildCatalogue(repo);
+    yield* syncPreviews(repo, catalogue.previews);
+    yield* writeText(path.join(repo.root, INDEX_FILE), renderIndex(catalogue.index));
     yield* out(
-      `${green('built')} ${catalogue.themes.length} theme(s) ` +
-        dim(`into ${DIST_DIR}/ and ${INDEX_FILE}` + (reused ? `, ${reused} kept from the previous build` : ''))
+      `${green('built')} ${catalogue.index.themes.length} theme(s) ` +
+        dim(
+          `into ${DIST_DIR}/ and ${INDEX_FILE}` +
+            (catalogue.previews.length ? `, ${catalogue.previews.length} preview(s)` : '') +
+            (reused ? `, ${reused} kept from the previous build` : '')
+        )
     );
     return ok;
   });

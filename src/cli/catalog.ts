@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { Effect, FileSystem, Path } from 'effect';
 
 import { sha256 } from '../digest.js';
+import { inspectThemeImage } from '../image-inspection.js';
 import { unpackTheme } from '../package.js';
 import type { ThemeManifest } from '../schema.js';
 import { DIST_DIR, type ThemesRepo } from './repo.js';
@@ -53,6 +54,13 @@ export type IndexEntry = {
   readonly sha256: string;
   readonly assets: number;
   /**
+   * Repository-relative path of the theme's preview image, e.g.
+   * `dist/previews/grand-voyage.webp`: the asset the manifest names as
+   * `preview`, published beside the package so a gallery can show it without
+   * downloading the package. Absent when the manifest declares none.
+   */
+  readonly preview?: string;
+  /**
    * A digest of the source the package was built from: `theme.json` and every
    * declared asset. `build` compares it to the current source to decide
    * whether a package needs repacking, which is what lets a repository of many
@@ -99,10 +107,65 @@ export type ThemesIndex = {
 
 const PACKAGE_SUFFIX = '.muqun-theme';
 
-/** Build the index from what is packed in `dist/`. */
-export const buildIndex = (
+/**
+ * Where preview images are published: `dist/previews/<id>.<ext>`.
+ *
+ * A theme's `preview` is one of its own assets, so a gallery could always get
+ * it by downloading the package -- megabytes of artwork to show one card. The
+ * image is copied out beside the package instead, as the bytes the package
+ * holds (already optimised by `pack`), under an extension that says what the
+ * bytes are rather than what the source file was called. The directory
+ * mirrors the index: `build` writes it, `check` holds it current.
+ */
+export const PREVIEWS_DIR = 'previews';
+
+export type PackagePreview = {
+  readonly id: string;
+  /** The file name under `dist/previews/`, e.g. `grand-voyage.webp`. */
+  readonly file: string;
+  readonly bytes: Uint8Array;
+};
+
+const PREVIEW_EXTENSION = { png: 'png', jpeg: 'jpg', webp: 'webp' } as const;
+
+/**
+ * The preview a packed theme publishes, or nothing.
+ *
+ * Nothing when the manifest declares no `preview`, and nothing when the bytes
+ * it names are not an image the app would accept: the index says `preview`
+ * only where a gallery can actually draw one.
+ */
+export const packagePreview = (
+  manifest: ThemeManifest,
+  assets: Record<string, Uint8Array>
+): PackagePreview | undefined => {
+  if (manifest.preview === undefined) return undefined;
+  const bytes = assets[manifest.preview];
+  if (!bytes) return undefined;
+  try {
+    const { format } = inspectThemeImage(bytes);
+    return { id: manifest.id, file: `${manifest.id}.${PREVIEW_EXTENSION[format]}`, bytes };
+  } catch {
+    return undefined;
+  }
+};
+
+/** The repository-relative path of a preview file, as the index records it. */
+export const previewPath = (file: string): string => `${DIST_DIR}/${PREVIEWS_DIR}/${file}`;
+
+export type Catalogue = {
+  readonly index: ThemesIndex;
+  /** Every preview the index names, with its bytes, in index order. */
+  readonly previews: readonly PackagePreview[];
+};
+
+/**
+ * The catalogue from what is packed in `dist/`: the index, and the preview
+ * images it names. One walk over the packages, so the two cannot disagree.
+ */
+export const buildCatalogue = (
   repo: ThemesRepo
-): Effect.Effect<ThemesIndex, CommandError, FileSystem.FileSystem | Path.Path> =>
+): Effect.Effect<Catalogue, CommandError, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -111,6 +174,7 @@ export const buildIndex = (
       .sort();
 
     const themes: IndexEntry[] = [];
+    const previews: PackagePreview[] = [];
     for (const name of names) {
       const file = path.join(repo.dist, name);
       const bytes = yield* fs
@@ -128,6 +192,8 @@ export const buildIndex = (
         Effect.flatMap((loaded) => sourceDigest(source, loaded.manifest)),
         Effect.option
       );
+      const preview = packagePreview(manifest, assets);
+      if (preview) previews.push(preview);
       themes.push({
         id: manifest.id,
         name: manifest.name,
@@ -142,11 +208,18 @@ export const buildIndex = (
         bytes: bytes.length,
         sha256: sha256(bytes),
         assets: Object.keys(assets).length,
+        ...(preview && { preview: previewPath(preview.file) }),
         ...(digest._tag === 'Some' && { sourceDigest: digest.value }),
       });
     }
-    return { format: INDEX_FORMAT, themes };
+    return { index: { format: INDEX_FORMAT, themes }, previews };
   });
+
+/** Build the index from what is packed in `dist/`. */
+export const buildIndex = (
+  repo: ThemesRepo
+): Effect.Effect<ThemesIndex, CommandError, FileSystem.FileSystem | Path.Path> =>
+  Effect.map(buildCatalogue(repo), (catalogue) => catalogue.index);
 
 export const renderIndex = (index: ThemesIndex): string => `${JSON.stringify(index, null, 2)}\n`;
 
@@ -168,17 +241,25 @@ export const parseIndex = (text: string): Effect.Effect<ThemesIndex, CommandErro
 export const indexUrl = (base: string): string => `${withSlash(base)}${INDEX_FILE}`;
 
 /**
- * A package's download URL, given where its index came from.
+ * A repository-relative path as a URL, given where its index came from.
  *
- * Packages sit beside the index under the same base, on the API and on the
- * release branch alike, so the base is the index URL minus its file name.
- * A local index has no base to speak of, and gets no URL.
+ * Packages and previews sit beside the index under the same base, on the API
+ * and on the release branch alike, so the base is the index URL minus its
+ * file name. A local index has no base to speak of, and gets no URL.
  */
-export const packageUrl = (source: string, entry: IndexEntry): string | undefined => {
+const fileUrl = (source: string, relative: string): string | undefined => {
   if (!/^https?:\/\//.test(source)) return undefined;
   const base = source.endsWith(INDEX_FILE) ? source.slice(0, -INDEX_FILE.length) : withSlash(source);
-  return `${base}${entry.package}`;
+  return `${base}${relative}`;
 };
+
+/** A package's download URL. */
+export const packageUrl = (source: string, entry: IndexEntry): string | undefined =>
+  fileUrl(source, entry.package);
+
+/** A theme's preview image URL, when it publishes one. */
+export const previewUrl = (source: string, entry: IndexEntry): string | undefined =>
+  entry.preview === undefined ? undefined : fileUrl(source, entry.preview);
 
 const withSlash = (base: string): string => (base.endsWith('/') ? base : `${base}/`);
 
