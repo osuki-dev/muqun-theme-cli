@@ -21,6 +21,13 @@ import {
 } from './format.js';
 import { optimizeAssets } from './optimize.js';
 import { out } from './output.js';
+import {
+  openInBrowser,
+  previewPageUrl,
+  startPreviewServer,
+  untilInterrupted,
+  HOST,
+} from './preview-server.js';
 import type { Output } from './output.js';
 import {
   DIST_DIR,
@@ -325,6 +332,69 @@ export const pack = (
         `${built.assets} asset(s)  ${dim('round trip ok')}`
     );
     yield* out(dim(`  package limit ${size(THEME_LIMITS.packageBytes)}`));
+    return ok;
+  });
+
+export type PreviewOptions = {
+  readonly port: number;
+  /** The website whose preview page to open; a local checkout works too. */
+  readonly site: string;
+  readonly open: boolean;
+};
+
+/**
+ * Serve a theme being edited to the website's live preview.
+ *
+ * The page at `<site>/themes/preview/` draws a theme from any URL the way the
+ * gallery draws it, and re-reads that URL every couple of seconds. What it
+ * needs from here is the source: the directory over HTTP, on loopback, with
+ * CORS. The manifest is read once before the server starts, so a missing or
+ * broken `theme.json` is this command's failure, in the usual sentence, rather
+ * than a message in a browser tab. After that the server reads fresh on every
+ * request and judges nothing: a manifest that stops parsing mid-edit is served
+ * as it is, and the page says what is wrong with it.
+ */
+export const preview = (
+  target: string,
+  options: PreviewOptions
+): Effect.Effect<Outcome, CommandError, Env> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const dir = yield* resolveThemeDir(target);
+    const root = path.resolve(dir);
+    const { manifest } = yield* readManifestFile(path.join(root, 'theme.json'));
+
+    const local = `http://${HOST}:${options.port}/`;
+    const page = previewPageUrl(options.site, local);
+
+    yield* Effect.acquireUseRelease(
+      Effect.try({
+        try: () => startPreviewServer({ root, port: options.port, landing: page }),
+        catch: (error) =>
+          (error as { code?: string }).code === 'EADDRINUSE'
+            ? fail(`Port ${options.port} is already in use; pick another with --port.`)
+            : fail(error instanceof Error ? error.message : String(error)),
+      }),
+      (server) =>
+        Effect.gen(function* () {
+          yield* out(
+            `${green('serving')} ${bold(manifest.name)} ${dim(`(${manifest.id})`)} from ${dir === '.' ? root : dir}`
+          );
+          yield* out(`  ${dim('local  ')} ${server.url}`);
+          yield* out(`  ${dim('preview')} ${page}`);
+          yield* out(
+            dim('  Edits to theme.json and assets/ show within a couple of seconds. Ctrl-C to stop.')
+          );
+          if (options.open) {
+            const problem = yield* Effect.promise(() => openInBrowser(page));
+            if (problem)
+              yield* out(dim(`  Could not open a browser (${problem}); open the preview URL yourself.`));
+          }
+          yield* untilInterrupted;
+        }),
+      (server) => Effect.promise(() => server.stop())
+    );
+    yield* out(dim('stopped'));
     return ok;
   });
 

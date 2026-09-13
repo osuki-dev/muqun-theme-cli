@@ -487,4 +487,5 @@ writes `src/<id>/`, and `validate` and `contrast` accept the bare id. Your deliv
 index. Finish with `muqun-theme check --sources`, which validates every source
 and proves it packs; report its result as printed. (`muqun-theme pack <id>`
 still works for a local look at the package, and `muqun-theme build` is what
-CI runs.)
+CI runs.) `muqun-theme preview <id>` shows the theme in a browser, drawn as
+the gallery draws it, and refreshes as the files change.

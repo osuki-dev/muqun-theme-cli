@@ -49,6 +49,8 @@ muqun-theme contrast <target>            opacity floors and the colours that set
 muqun-theme pack <dir|id> [--out file]   build a .muqun-theme, optimising artwork to WebP
              [--no-optimize]             ...keeping artwork exactly as authored
 muqun-theme unpack <file> [--out dir]    extract a package for editing
+muqun-theme preview [dir|id] [--port n]  show a theme in a browser while you edit it, via the website
+             [--no-open] [--site base]   ...printing the address only, or using another checkout of the site
 muqun-theme check [root] [--sources]     every theme in a themes repository, src/ and dist/ agreeing
 muqun-theme build [root]                 pack every source into dist/ and regenerate index.json
 muqun-theme index [root]                 write index.json, the catalogue of every packed theme
@@ -61,6 +63,7 @@ The author's loop is **init → edit → check → pack**:
 ```sh
 muqun-theme init grand-voyage --dir ./grand-voyage   # a complete, installable theme
 # replace the placeholder art in ./grand-voyage/assets, edit the colours
+muqun-theme preview ./grand-voyage                   # watch it in a browser as you go
 muqun-theme contrast ./grand-voyage                  # what the palette costs in translucency
 muqun-theme validate ./grand-voyage                  # everything the app will check on import
 muqun-theme pack ./grand-voyage --out grand-voyage.muqun-theme
@@ -397,6 +400,43 @@ unpacked grand-voyage into ./editable (theme.json + 0 asset(s))
 The cycle is lossless. Unpacking a package and repacking it reproduces the same
 manifest and the same asset bytes.
 
+### `preview`
+
+`preview` shows a theme in a browser while you edit it, drawn the way the
+gallery on [muqun.dev](https://muqun.dev/themes/) draws it, and redraws as the
+files change:
+
+```
+$ muqun-theme preview ./grand-voyage
+serving grand-voyage (grand-voyage) from ./grand-voyage
+  local   http://127.0.0.1:4173/
+  preview https://muqun.dev/themes/preview/?source=http://127.0.0.1:4173/
+  Edits to theme.json and assets/ show within a couple of seconds. Ctrl-C to stop.
+```
+
+It starts a small HTTP server on `127.0.0.1` — port `4173`, or `--port` — and
+opens the website's preview page pointed at it. Nothing is uploaded. The page
+runs in your browser and fetches `theme.json` and each declared asset from
+that local address every two seconds, redrawing only when the bytes differ;
+the server reads from disk on every request, so a saved edit is on screen at
+the next poll, a newly declared asset included. It serves exactly `theme.json`
+and the paths the manifest currently declares under `assets`; anything else in
+the directory is a 404, and nothing outside it is reachable. If the manifest
+stops parsing mid-edit the page says so and keeps the last good picture, and
+the server keeps serving.
+
+The first time, Chrome asks whether the page may reach your local network;
+that is the preview page reaching this server, so allow it. The server answers
+the browser's private-network preflight, and the page names the loopback
+address space it expects, which is what turns a silent refusal into that one
+prompt.
+
+`--no-open` prints the addresses without launching a browser — opening the
+local address in one lands on the preview page too. `--site` points the page
+at another checkout of the website, `--site http://localhost:4321` while
+working on the site itself. Inside a themes repository a bare id works, as it
+does for `pack`. Ctrl-C stops the server.
+
 ## Themes repositories
 
 A themes repository is a directory holding `src/` and `dist/`:
@@ -412,7 +452,7 @@ configured with it. Run inside such a directory:
 
 - `init <id>` writes `src/<id>/`, and refuses to overwrite one that exists.
 - `pack <id>` reads `src/<id>/` and writes `dist/<id>.muqun-theme`.
-- `validate <id>` and `contrast <id>` accept the bare id.
+- `validate <id>`, `contrast <id>` and `preview <id>` accept the bare id.
 - `index` rewrites `index.json` from `dist/`; `build` packs every source and
   then does the same.
 
@@ -773,8 +813,9 @@ src/
     repo.ts          the themes repository convention: src/, dist/, and the defaults they set
     catalog.ts       index.json: built from dist/, read back for list, searched and paged
     skill.ts         the agent skill, inlined into the executable at build time
+    preview-server.ts  the local server behind preview: the theme directory over HTTP, read fresh per request
     format.ts        every printed line, as pure functions
-    commands.ts      the ten commands, as Effects
+    commands.ts      the eleven commands, as Effects
     main.ts          argument parsing, help, exit codes
   cli.ts             the executable
 ```

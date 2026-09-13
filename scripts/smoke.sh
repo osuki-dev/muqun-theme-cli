@@ -37,4 +37,21 @@ test -f src/grand-voyage/theme.json
 test -f dist/grand-voyage.muqun-theme
 test -f index.json
 
+# preview runs until told to stop, so it goes in the background on a port
+# nothing else holds, is asked for the manifest, and is stopped again. A
+# signal is its normal ending, so a clean exit after one is part of the check.
+PORT="$(bun -e 'const s = Bun.serve({ hostname: "127.0.0.1", port: 0, fetch: () => new Response() }); console.log(s.port); s.stop()')"
+bun "$CLI" preview grand-voyage --no-open --port "$PORT" &
+PREVIEW=$!
+trap 'kill "$PREVIEW" 2>/dev/null || true; rm -rf "$WORK"' EXIT
+for _ in $(seq 1 50); do
+  curl -fsS "http://127.0.0.1:$PORT/theme.json" -o "$WORK/served.json" 2>/dev/null && break
+  sleep 0.2
+done
+test -s "$WORK/served.json"
+curl -fsS -D - "http://127.0.0.1:$PORT/theme.json" -o /dev/null | grep -qi '^access-control-allow-origin: \*'
+kill "$PREVIEW"
+wait "$PREVIEW"
+trap 'rm -rf "$WORK"' EXIT
+
 echo "smoke ok: $CLI"
