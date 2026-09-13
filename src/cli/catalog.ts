@@ -24,14 +24,18 @@ import { CommandError, declaredAssets, fail, readManifestFile } from './theme-so
  */
 export const INDEX_FILE = 'index.json';
 export const INDEX_FORMAT = 'muqun-themes-index';
-export const DEFAULT_REPO = 'osuki-dev/muqun-themes';
 /**
- * The built artefacts live on their own branch. `main` holds sources and is
- * what people review; CI runs `build` after a merge and publishes `dist/` and
- * `index.json` to `release`, rebuilt whole each time so binaries never pile up
- * in history.
+ * Where the published catalogue is read from.
+ *
+ * `main` of osuki-dev/muqun-themes holds sources; after every merge CI packs
+ * what changed and mirrors `index.json` and `dist/*.muqun-theme` into an R2
+ * bucket that the website serves at this address, with open CORS and short
+ * caching. The website's gallery and the app read the same place, so there is
+ * one catalogue rather than one per reader, and none of them depends on a
+ * GitHub URL or on the repository's visibility. The `release` branch of the
+ * repository carries the same files as a fallback.
  */
-export const DEFAULT_REF = 'release';
+export const DEFAULT_API = 'https://muqun.dev/api/themes/';
 
 export type IndexEntry = {
   readonly id: string;
@@ -150,6 +154,8 @@ export const renderIndex = (index: ThemesIndex): string => `${JSON.stringify(ind
 export const parseIndex = (text: string): Effect.Effect<ThemesIndex, CommandError> =>
   Effect.try({
     try: () => {
+      if (/^\s*</.test(text))
+        throw new Error(`That is a web page, not an index. Point --from at the ${INDEX_FILE} itself.`);
       const value = JSON.parse(text) as { format?: unknown; themes?: unknown };
       if (value?.format !== INDEX_FORMAT || !Array.isArray(value.themes))
         throw new Error(`Not a themes index: expected "format": "${INDEX_FORMAT}" and a "themes" array.`);
@@ -158,18 +164,26 @@ export const parseIndex = (text: string): Effect.Effect<ThemesIndex, CommandErro
     catch: (error) => fail(error instanceof Error ? error.message : String(error)),
   });
 
-export const indexUrl = (repo: string, ref: string): string =>
-  `https://raw.githubusercontent.com/${repo}/${ref}/${INDEX_FILE}`;
+/** The index under a base URL: `<base>index.json`. */
+export const indexUrl = (base: string): string => `${withSlash(base)}${INDEX_FILE}`;
 
-export const packageUrl = (repo: string, ref: string, entry: IndexEntry): string =>
-  `https://raw.githubusercontent.com/${repo}/${ref}/${entry.package}`;
+/**
+ * A package's download URL, given where its index came from.
+ *
+ * Packages sit beside the index under the same base, on the API and on the
+ * release branch alike, so the base is the index URL minus its file name.
+ * A local index has no base to speak of, and gets no URL.
+ */
+export const packageUrl = (source: string, entry: IndexEntry): string | undefined => {
+  if (!/^https?:\/\//.test(source)) return undefined;
+  const base = source.endsWith(INDEX_FILE) ? source.slice(0, -INDEX_FILE.length) : withSlash(source);
+  return `${base}${entry.package}`;
+};
+
+const withSlash = (base: string): string => (base.endsWith('/') ? base : `${base}/`);
 
 /**
  * The text of an index, from a URL or a local file.
- *
- * `GITHUB_TOKEN` is sent when present, which is what makes a private
- * repository readable and is otherwise ignored. A local path is how the
- * command is tested and how a repository can list itself before publishing.
  */
 export const readIndexSource = (
   from: string
@@ -181,17 +195,10 @@ export const readIndexSource = (
         .readFileString(from)
         .pipe(Effect.mapError(() => fail(`Could not read ${from}.`)));
     }
-    const token = process.env.GITHUB_TOKEN;
-    const headers: Record<string, string> = { accept: 'application/json, text/plain' };
-    if (token) headers.authorization = `Bearer ${token}`;
     return yield* Effect.tryPromise({
       try: async () => {
-        const response = await fetch(from, { headers });
-        if (response.status === 404)
-          throw new Error(
-            `${from} was not found. The repository may be private (set GITHUB_TOKEN), ` +
-              `or it has no ${INDEX_FILE} yet.`
-          );
+        const response = await fetch(from, { headers: { accept: 'application/json, text/plain' } });
+        if (response.status === 404) throw new Error(`${from} was not found.`);
         if (!response.ok) throw new Error(`${from} answered ${response.status} ${response.statusText}.`);
         return await response.text();
       },

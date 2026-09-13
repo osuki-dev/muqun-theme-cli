@@ -540,26 +540,22 @@ answer from one request.
 
 ### `list`
 
-The published themes, from GitHub:
+The published themes, from the API at `https://muqun.dev/api/themes/`:
 
 ```
 $ muqun-theme list --search sea
-2 theme(s) matching "sea"  page 1/1  https://raw.githubusercontent.com/osuki-dev/muqun-themes/release/index.json
+2 theme(s) matching "sea"  page 1/1  https://muqun.dev/api/themes/index.json
 grand-voyage  Grand Voyage  v1.0.0  by …  3.93 MiB
               A long horizon, warm brass and deep water.
               #warm #sea
 …
-  packages: https://github.com/osuki-dev/muqun-themes/tree/release/dist
+  download: https://muqun.dev/api/themes/dist/<id>.muqun-theme
 ```
 
-`--search` is a case-insensitive substring over id, name, author, description
-and tags. `--page` and `--per-page` (default 20) page the result, and the
-footer names the next page when there is one. `--json` prints the same page as
-data, each entry carrying the `url` its package downloads from. `--repo` and
-`--ref` point at another repository or branch (the default ref is `release`,
-where CI publishes the build); `--from` reads a local file or any URL instead,
-which is how a repository lists itself before publishing and how the command
-is tested. A private repository is readable with `GITHUB_TOKEN` set.
+`--search` matches id, name, author, description and tags, case-insensitively.
+`--page` and `--per-page` (default 20) page the result. `--json` prints the
+same page as data, each entry with the `url` its package downloads from.
+`--from` reads an `index.json` from another URL or a local file instead.
 
 ### `skill`
 
