@@ -56,6 +56,7 @@ const PLACEHOLDERS: readonly Placeholder[] = [
   { id: 'empty-state', file: 'empty-state.png', width: 512, height: 512, tint: light('info') },
   { id: 'icon-back', file: 'icon-back.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-send', file: 'icon-send.png', width: 96, height: 96, tint: light('text') },
+  { id: 'icon-attach', file: 'icon-attach.png', width: 96, height: 96, tint: light('text') },
   { id: 'logo', file: 'logo.png', width: 256, height: 256, tint: light('primary') },
 ];
 
@@ -118,6 +119,7 @@ export function createThemeScaffold(slug?: string): ThemeScaffold {
     icons: {
       'chrome.back': { asset: 'icon-back', render: 'template' as const },
       'chrome.send': { asset: 'icon-send', render: 'template' as const },
+      'chrome.attach': { asset: 'icon-attach', render: 'template' as const },
     },
 
     materials: {
