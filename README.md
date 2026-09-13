@@ -490,6 +490,28 @@ anything that is not there, and a source that will not pack fails the build
 before the index is touched. This is what CI runs after a merge; a contributor
 never needs to.
 
+**It is incremental.** Each index entry carries a `sourceDigest`, a hash of
+the source it was packed from: `theme.json` and every declared asset. With the
+previous `dist/` and `index.json` in place, a source whose digest is unchanged,
+and whose package still has the bytes the index says, is kept rather than
+repacked:
+
+```
+src/amber-dusk
+  kept dist/amber-dusk.muqun-theme  source unchanged since it was packed
+src/blue-harbor
+  webp      shell-light      png 10.9 KiB -> 4.3 KiB (40%, q94)
+  packed dist/blue-harbor.muqun-theme  22.9 KiB  14 asset(s)
+
+built 2 theme(s) into dist/ and index.json, 1 kept from the previous build
+```
+
+So a merge that touched one theme repacks one theme, everything else keeps its
+bytes and its `sha256`, and whatever mirrors `dist/` can upload only what
+differs. The digest is of the source rather than of the version field, so an
+asset swapped without a version bump is still a change. `--force` repacks
+everything.
+
 ### `index`
 
 Writes `index.json` at the repository root: one entry per package in `dist/`,
@@ -503,7 +525,8 @@ sorted by id, with the metadata a reader wants before downloading anything.
       "id": "grand-voyage", "name": "Grand Voyage", "version": "1.0.0",
       "author": "…", "license": "…", "description": "…", "tags": ["…"],  // when the manifest has them
       "package": "dist/grand-voyage.muqun-theme",
-      "bytes": 4123456, "sha256": "…", "assets": 10
+      "bytes": 4123456, "sha256": "…", "assets": 10,
+      "sourceDigest": "…"       // what build compares to skip an unchanged source
     }
   ]
 }

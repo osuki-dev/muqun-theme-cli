@@ -420,6 +420,50 @@ test('a pull request carries only sources: check --sources proves they pack, and
   expect(runIn(repo, 'check').code).toBe(0);
 }, SUBPROCESS_HEAVY);
 
+test('build is incremental: an untouched source keeps its package byte for byte, a touched one is repacked', () => {
+  const repo = scratch();
+  mkdirSync(join(repo, 'src'));
+  mkdirSync(join(repo, 'dist'));
+  expect(runIn(repo, 'init', 'amber-dusk').code).toBe(0);
+  expect(runIn(repo, 'init', 'blue-harbor').code).toBe(0);
+  expect(runIn(repo, 'build').code).toBe(0);
+  const first = JSON.parse(readFileSync(join(repo, 'index.json'), 'utf8')).themes;
+  expect(first[0].sourceDigest).toMatch(/^[0-9a-f]{64}$/);
+  const amberBefore = readFileSync(join(repo, 'dist', 'amber-dusk.muqun-theme'));
+
+  // Nothing changed: nothing is repacked, and the index is byte-identical.
+  const again = runIn(repo, 'build');
+  expect(again.code).toBe(0);
+  expect(again.stdout).toContain('kept dist/amber-dusk.muqun-theme');
+  expect(again.stdout).toContain('kept dist/blue-harbor.muqun-theme');
+  expect(again.stdout).toContain('2 kept from the previous build');
+  expect(JSON.parse(readFileSync(join(repo, 'index.json'), 'utf8')).themes).toEqual(first);
+  expect(readFileSync(join(repo, 'dist', 'amber-dusk.muqun-theme'))).toEqual(amberBefore);
+
+  // An asset swapped without a version bump is still a changed source.
+  const asset = join(repo, 'src', 'blue-harbor', 'assets', 'shell-light.png');
+  writeFileSync(asset, readFileSync(join(repo, 'src', 'amber-dusk', 'assets', 'shell-dark.png')));
+  const third = runIn(repo, 'build');
+  expect(third.code).toBe(0);
+  expect(third.stdout).toContain('kept dist/amber-dusk.muqun-theme');
+  expect(third.stdout).toContain('packed dist/blue-harbor.muqun-theme');
+  const after = JSON.parse(readFileSync(join(repo, 'index.json'), 'utf8')).themes;
+  expect(after[0]).toEqual(first[0]);
+  expect(after[1].sourceDigest).not.toBe(first[1].sourceDigest);
+
+  // A package tampered with on disk is not trusted just because the source is unchanged.
+  writeFileSync(join(repo, 'dist', 'amber-dusk.muqun-theme'), Buffer.from('not a zip'));
+  const healed = runIn(repo, 'build');
+  expect(healed.code).toBe(0);
+  expect(healed.stdout).toContain('packed dist/amber-dusk.muqun-theme');
+  expect(runIn(repo, 'check').code).toBe(0);
+
+  // --force repacks everything regardless.
+  const forced = runIn(repo, 'build', '--force');
+  expect(forced.code).toBe(0);
+  expect(forced.stdout).not.toContain('kept ');
+}, SUBPROCESS_HEAVY);
+
 test('outside a repository, init and pack default beside the author', () => {
   const dir = scratch();
   const init = runIn(dir, 'init', 'grand-voyage');
