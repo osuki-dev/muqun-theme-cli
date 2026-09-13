@@ -110,6 +110,31 @@ test('init warns that scaffolded artwork is still placeholder', () => {
   const result = run('validate', dir);
   expect(result.code).toBe(0); // a warning, never a failure
   expect(result.stdout).toContain('placeholder');
+  // The scaffold fills every slot and declares no preview; both are said.
+  expect(result.stdout).toContain('10/10 decoration slots filled');
+  expect(result.stdout).toContain('no preview declared');
+});
+
+test('validate names the decoration slots a theme leaves unset', () => {
+  const dir = scratch();
+  run('init', 'plain', '--dir', dir);
+  const file = join(dir, 'theme.json');
+  const manifest = JSON.parse(readFileSync(file, 'utf8'));
+  delete manifest.decoration['home.background'];
+  manifest.decoration['home.decoration'] = null;
+  writeFileSync(file, JSON.stringify(manifest));
+  const result = run('validate', dir);
+  expect(result.code).toBe(0);
+  expect(result.stdout).toContain('8/10 decoration slots filled');
+  expect(result.stdout).toContain('unset: home.background, home.decoration');
+
+  // A palette-only theme fills nothing, and that is a note, not a warning.
+  const palette = scratch();
+  run('init', '--colors-only', '--dir', palette);
+  const plain = run('validate', palette);
+  expect(plain.code).toBe(0);
+  expect(plain.stdout).toContain('0/10 decoration slots filled');
+  expect(plain.stdout).not.toContain('warning');
 });
 
 test('init --colors-only writes a palette and no assets', () => {

@@ -4,7 +4,7 @@ import { formatThemeJson } from '../format-json.js';
 import { themeOpacityPolicy } from '../opacity-policy.js';
 import { packTheme, unpackTheme } from '../package.js';
 import { createThemeScaffold, scaffoldFiles } from '../scaffold.js';
-import { THEME_LIMITS, type ThemeManifest } from '../schema.js';
+import { THEME_LIMITS, THEME_SLOTS, type ThemeManifest } from '../schema.js';
 import { createThemeStarter } from '../starter.js';
 import { verifyAssets, verifyManifest } from '../verify.js';
 import {
@@ -102,8 +102,37 @@ const inspect = (
       yield* out(dim(`  ${count}/${THEME_LIMITS.assets} asset(s), ${size(bytes)} of artwork`));
     }
     for (const line of issueLines(issues)) yield* out(line);
+    for (const line of coverageLines(manifest)) yield* out(line);
     return { ok: errors === 0, manifest };
   });
+
+/**
+ * What a theme leaves plain, said before a gallery shows it.
+ *
+ * Neither is a problem -- a palette-only theme fills no slot by design, and a
+ * missing `preview` means the gallery draws one from the theme itself -- so
+ * these are notes, not warnings. They exist because the first published pack
+ * filled eight slots and left Home bare, and its author learned that from the
+ * gallery rather than from this command.
+ */
+function coverageLines(manifest: ThemeManifest): string[] {
+  // The app's rule (resolve.ts): a variant layer that is `undefined` inherits
+  // the shared one; `null` removes the image there. A slot counts as filled
+  // when either mode ends up drawing something.
+  const resolved = (slot: string, mode: 'light' | 'dark') => {
+    const variant = manifest.variantDecorations?.[mode]?.[slot];
+    return variant === undefined ? manifest.decoration?.[slot] : variant;
+  };
+  const filled = THEME_SLOTS.filter((slot) => Boolean(resolved(slot, 'light') || resolved(slot, 'dark')));
+  const unset = THEME_SLOTS.filter((slot) => !filled.includes(slot));
+  const lines = [
+    `  ${dim('note   ')} ${filled.length}/${THEME_SLOTS.length} decoration slots filled` +
+      (unset.length ? dim(`; unset: ${unset.join(', ')}`) : ''),
+  ];
+  if (manifest.preview === undefined)
+    lines.push(`  ${dim('note   ')} no preview declared ${dim('(the gallery draws one from the theme)')}`);
+  return lines;
+}
 
 export const validate = (target: string): Effect.Effect<Outcome, CommandError, Env> =>
   Effect.map(inspect(target), (result) => (result.ok ? ok : bad));
