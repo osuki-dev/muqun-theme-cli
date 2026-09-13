@@ -266,6 +266,13 @@ test('warnings alone never fail a command', () => {
   expect(result.stdout).toContain('chrome.teleport');
 });
 
+/**
+ * The repository tests spawn the CLI a dozen times each. Bun's default budget
+ * is five seconds per test, which a CI runner can miss on a cold cache without
+ * anything being wrong.
+ */
+const SUBPROCESS_HEAVY = 60_000;
+
 /** The CLI run from inside a directory, the way an author in a repository runs it. */
 function runIn(cwd: string, ...args: string[]): { code: number; stdout: string; stderr: string } {
   const result = Bun.spawnSync(['bun', CLI, ...args], {
@@ -361,7 +368,7 @@ test('inside a themes repository, init and pack default into src/ and dist/, and
   writeFileSync(join(repo, 'dist', 'orphan.muqun-theme'), readFileSync(join(repo, 'dist', 'grand-voyage.muqun-theme')));
   expect(runIn(repo, 'check').stdout).toContain('dist/orphan.muqun-theme');
   expect(runIn(repo, 'check').stdout).toContain('has no source in src/orphan/');
-});
+}, SUBPROCESS_HEAVY);
 
 test('a pull request carries only sources: check --sources proves they pack, and build makes dist/ from them', () => {
   const repo = scratch();
@@ -411,7 +418,7 @@ test('a pull request carries only sources: check --sources proves they pack, and
   expect(existsSync(join(repo, 'dist', 'blue-harbor.muqun-theme'))).toBe(false);
   expect(JSON.parse(readFileSync(join(repo, 'index.json'), 'utf8')).themes).toHaveLength(1);
   expect(runIn(repo, 'check').code).toBe(0);
-});
+}, SUBPROCESS_HEAVY);
 
 test('outside a repository, init and pack default beside the author', () => {
   const dir = scratch();
@@ -450,7 +457,7 @@ test('skill prints the vendored skill byte for byte, writes it, and check notice
   expect(drifted.code).toBe(0);
   expect(drifted.stdout).toContain('differs from the skill this CLI carries');
   expect(drifted.stdout).toContain('muqun-theme skill --out skills/muqun-theme/SKILL.md');
-});
+}, SUBPROCESS_HEAVY);
 
 test('list searches and pages a catalogue, and --json is the same page as data', () => {
   const dir = scratch();
@@ -513,4 +520,4 @@ test('list searches and pages a catalogue, and --json is the same page as data',
   const refused = runIn(dir, 'list', '--from', 'index.json');
   expect(refused.code).toBe(1);
   expect(refused.stderr).toContain('Not a themes index');
-});
+}, SUBPROCESS_HEAVY);
