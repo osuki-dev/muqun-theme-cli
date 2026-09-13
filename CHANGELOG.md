@@ -1,5 +1,27 @@
 # @osuki-dev/muqun-theme
 
+## 1.8.0
+
+### Minor Changes
+
+- [#19](https://github.com/osuki-dev/muqun-theme-cli/pull/19) [`a5fd650`](https://github.com/osuki-dev/muqun-theme-cli/commit/a5fd650c17e77586ff612891e3056141fff3e311) Thanks [@ryuhzk](https://github.com/ryuhzk)! - A theme's preview image is published beside its package. When a manifest
+  declares `preview`, `build` copies that asset out of the packed theme -- the
+  bytes as packed, so the optimised WebP -- into `dist/previews/<id>.<ext>`,
+  with the extension (`webp`, `png` or `jpg`) chosen by inspecting the bytes,
+  and the index entry gains `preview: "dist/previews/<id>.<ext>"`. A gallery
+  can show the picture without downloading the package.
+
+  `dist/previews/` mirrors the index: a theme that stops declaring a preview,
+  or whose source is gone, loses its file, and `build` removes anything the
+  index does not name. `check` reports a missing, stale or stray preview file
+  and names `muqun-theme build` as the fix. `list --json` carries `previewUrl`
+  beside `url` when the index came from a URL and the entry has a preview.
+
+- [#19](https://github.com/osuki-dev/muqun-theme-cli/pull/19) [`d9d4cc5`](https://github.com/osuki-dev/muqun-theme-cli/commit/d9d4cc59dde435488acb2dc4b0997ff1c8ed0463) Thanks [@ryuhzk](https://github.com/ryuhzk)! - `init` scaffolds a placeholder preview cover (`assets/preview.png`, 1024x640)
+  and names it in `preview`, so a fresh theme already has what galleries show.
+  `check --sources --require-preview` refuses a source without one; the themes
+  repository's CI uses it.
+
 ## 1.7.1
 
 ### Patch Changes
