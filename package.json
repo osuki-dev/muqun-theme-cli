@@ -1,6 +1,6 @@
 {
   "name": "@osuki-dev/muqun-theme",
-  "version": "1.8.0",
+  "version": "1.8.1",
   "description": "Build and check Muqun themes from a terminal — init, validate, pack, unpack, and explain the opacity floor of a .muqun-theme package. Runs on Bun.",
   "type": "module",
   "bin": {
