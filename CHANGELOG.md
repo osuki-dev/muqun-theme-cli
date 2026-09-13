@@ -1,5 +1,13 @@
 # @osuki-dev/muqun-theme
 
+## 1.5.0
+
+### Minor Changes
+
+- [`0662e40`](https://github.com/osuki-dev/muqun-theme-cli/commit/0662e40a2c3b620b2911ebb477a5f28ef09e9cea) Thanks [@ryuhzk](https://github.com/ryuhzk)! - `validate` now says what a theme leaves plain: how many of the ten decoration
+  slots are filled and which are unset, and whether a `preview` image is
+  declared. Notes, not warnings; a palette-only theme is still clean.
+
 ## 1.4.0
 
 ### Minor Changes
