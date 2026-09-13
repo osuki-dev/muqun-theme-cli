@@ -1,5 +1,12 @@
 # @osuki-dev/muqun-theme
 
+## 1.7.1
+
+### Patch Changes
+
+- [#17](https://github.com/osuki-dev/muqun-theme-cli/pull/17) [`60521ba`](https://github.com/osuki-dev/muqun-theme-cli/commit/60521bae418e9c1464e83ee8feb05661e197afc9) Thanks [@ryuhzk](https://github.com/ryuhzk)! - `validate` no longer warns that a theme's `preview` image is "declared but
+  never drawn". The gallery draws it.
+
 ## 1.7.0
 
 ### Minor Changes
