@@ -1,0 +1,63 @@
+{
+  "name": "@osuki-dev/muqun-theme",
+  "version": "1.0.1",
+  "description": "Build and check Muqun themes from a terminal — init, validate, pack, unpack, and explain the opacity floor of a .muqun-theme package. Runs on Bun.",
+  "type": "module",
+  "bin": {
+    "muqun-theme": "./lib/cli.js"
+  },
+  "files": [
+    "lib",
+    "skills",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "bun": ">=1.4.0"
+  },
+  "scripts": {
+    "build": "bun build ./src/cli.ts --target=bun --outfile=lib/cli.js",
+    "clean": "rm -rf lib",
+    "typecheck": "bun --bun tsc --noEmit",
+    "test": "bun test src",
+    "smoke": "bash scripts/smoke.sh",
+    "prepack": "bun run clean && bun run build",
+    "changeset": "changeset",
+    "version:packages": "changeset version && bun install --lockfile-only",
+    "release:packages": "npm publish --access public"
+  },
+  "keywords": [
+    "muqun",
+    "theme",
+    "cli",
+    "contrast",
+    "wcag",
+    "accessibility",
+    "terminal",
+    "color-scheme"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/osuki-dev/muqun-theme-cli.git"
+  },
+  "author": "osuki-dev",
+  "license": "Apache-2.0",
+  "bugs": {
+    "url": "https://github.com/osuki-dev/muqun-theme-cli/issues"
+  },
+  "homepage": "https://github.com/osuki-dev/muqun-theme-cli#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@changesets/changelog-github": "^0.7.0",
+    "@changesets/cli": "^2.31.1",
+    "@effect/platform-node": "4.0.0-rc.115",
+    "@types/bun": "^1.2.0",
+    "@types/node": "^22.10.0",
+    "effect": "4.0.0-rc.115",
+    "fflate": "0.8.3",
+    "typescript": "~7.0.2",
+    "zod": "4.5.4"
+  }
+}

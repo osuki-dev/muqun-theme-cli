@@ -1,0 +1,12 @@
+node_modules/
+lib/
+*.tgz
+*.log
+
+# Scratch output from running the CLI against real packs.
+tmp/
+*.muqun-theme
+
+.DS_Store
+.idea/
+.vscode/

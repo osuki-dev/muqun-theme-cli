@@ -1,0 +1,49 @@
+name: CI
+
+# Bun only. The bundle is built by `bun build`, the tests run under `bun test`,
+# and tsc runs under Bun too, so nothing here needs Node.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun ci
+
+      # `pack` converts artwork through Bun.Image. Its WebP codec is documented
+      # as bundled (libwebp) rather than OS-provided, but Bun.Image.backend
+      # reports "system" on macOS, so this proves the claim on Linux instead of
+      # repeating it. A real PNG in, a real WebP out, checked by the app's own
+      # inspector.
+      - name: Verify Bun image support on this runner
+        run: |
+          bun --version
+          bun -e '
+            import { solidPng } from "./src/placeholder-png.ts";
+            import { inspectThemeImage } from "./src/image-inspection.ts";
+            console.log("Bun.Image.backend:", Bun.Image.backend);
+            const png = solidPng(256, 256, "#A62A18", { placeholder: false });
+            const webp = await new Bun.Image(png).webp({ quality: 94 }).bytes();
+            const info = inspectThemeImage(webp);
+            console.log(`png ${png.length}B -> webp ${webp.length}B`, JSON.stringify(info));
+            if (info.format !== "webp") throw new Error("WebP encoding unavailable on this runner");
+            const alpha = solidPng(64, 64, "#FFFFFF80", { placeholder: false });
+            const out = await new Bun.Image(alpha).webp({ quality: 94 }).bytes();
+            const head = new TextDecoder("latin1").decode(out.subarray(0, 64));
+            if (!head.includes("ALPH")) throw new Error("alpha was lost in conversion");
+            console.log("alpha preserved (ALPH chunk present)");
+          '
+
+      - run: bun run typecheck
+      - run: bun test src
+      - run: bun run build
+
+      # What ships is the single bundled `lib/cli.js`, not `src/`. This is the
+      # only step that exercises it.
+      - name: Smoke test the bundle
+        run: bun run smoke

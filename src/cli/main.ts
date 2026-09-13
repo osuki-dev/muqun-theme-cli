@@ -1,0 +1,180 @@
+import * as NodeServices from '@effect/platform-node/NodeServices';
+import * as NodeStdio from '@effect/platform-node/NodeStdio';
+import * as NodeTerminal from '@effect/platform-node/NodeTerminal';
+import { Effect, Layer, Option } from 'effect';
+import { Argument, Command, Flag } from 'effect/unstable/cli';
+
+import * as commands from './commands.js';
+import { red } from './format.js';
+import * as Output from './output.js';
+import type { CommandError } from './theme-source.js';
+
+import pkg from '../../package.json' with { type: 'json' };
+
+/**
+ * Argument parsing, help and exit codes.
+ *
+ * This is the only module that knows the CLI is a CLI. Everything below it --
+ * the commands, the formatting, the domain -- is ordinary values and Effects,
+ * which is why the command tests do not need a subprocess.
+ */
+
+// From package.json, so a changesets bump reaches `--version` without a
+// second edit. Bun inlines the JSON at build time.
+const VERSION: string = pkg.version;
+
+const targetArgument = Argument.String('target').pipe(
+  Argument.withDescription(
+    'a .muqun-theme package, a .muqun-theme.json manifest, or a directory holding theme.json'
+  )
+);
+
+/**
+ * Commands return an outcome rather than failing, so "this theme is broken" and
+ * "this command could not run" stay distinguishable. Both end as exit code 1;
+ * only the second prints to stderr.
+ */
+const runOutcome = <R>(
+  effect: Effect.Effect<commands.Outcome, CommandError, R>
+): Effect.Effect<void, never, R | Output.Output> =>
+  effect.pipe(
+    Effect.flatMap((outcome) =>
+      Effect.sync(() => {
+        if (!outcome.ok) process.exitCode = 1;
+      })
+    ),
+    // Schema failures arrive as multi-line "<path>: <message>" text. That is the
+    // right level of detail for someone editing the file; it is only the wrong
+    // level on a phone, where nobody can act on it.
+    Effect.catchTag('CommandError', (error) =>
+      Effect.gen(function* () {
+        yield* Output.err(red(error.message));
+        yield* Effect.sync(() => {
+          process.exitCode = 1;
+        });
+      })
+    )
+  );
+
+const validate = Command.make('validate', { target: targetArgument }).pipe(
+  Command.withDescription('schema, references, images, digests and limits'),
+  Command.withHandler(({ target }) => runOutcome(commands.validate(target)))
+);
+
+const contrast = Command.make('contrast', { target: targetArgument }).pipe(
+  Command.withDescription('opacity floors and the colour pairs that set them'),
+  Command.withHandler(({ target }) => runOutcome(commands.contrast(target)))
+);
+
+const init = Command.make('init', {
+  slug: Argument.String('slug').pipe(
+    Argument.withDescription('theme id, lowercase with dashes'),
+    Argument.optional
+  ),
+  dir: Flag.String('dir').pipe(
+    Flag.withAlias('d'),
+    Flag.withDescription('where to write the theme'),
+    Flag.withDefault('.')
+  ),
+  colorsOnly: Flag.Boolean('colors-only').pipe(
+    Flag.withDescription('write only a palette, with no assets'),
+    Flag.withDefault(false)
+  ),
+}).pipe(
+  Command.withDescription('scaffold a complete theme, with placeholder art'),
+  Command.withHandler(({ slug, dir, colorsOnly }) =>
+    runOutcome(commands.init(Option.getOrUndefined(slug), dir, colorsOnly))
+  )
+);
+
+const pack = Command.make('pack', {
+  dir: Argument.Directory('dir').pipe(Argument.withDescription('a directory holding theme.json')),
+  out: Flag.String('out').pipe(
+    Flag.withAlias('o'),
+    Flag.withDescription('where to write the .muqun-theme'),
+    Flag.optional
+  ),
+  /*
+   * The escape hatch is a flag rather than a per-asset field in the manifest,
+   * and that is forced rather than preferred: `assetSchema` is a zod
+   * `strictObject`, so any key it does not define fails the whole manifest. An
+   * opt-out living in `theme.json` would mean changing the app's schema, which
+   * is the app's to change and not this tool's.
+   */
+  noOptimize: Flag.Boolean('no-optimize').pipe(
+    Flag.withDescription('keep artwork exactly as authored, with no WebP conversion'),
+    Flag.withDefault(false)
+  ),
+}).pipe(
+  Command.withDescription('build a .muqun-theme and verify it round trips'),
+  Command.withHandler(({ dir, out, noOptimize }) =>
+    runOutcome(commands.pack(dir, Option.getOrUndefined(out), !noOptimize))
+  )
+);
+
+const unpack = Command.make('unpack', {
+  file: Argument.String('file').pipe(Argument.withDescription('a .muqun-theme package')),
+  positional: Argument.String('dir').pipe(
+    Argument.withDescription('where to extract it'),
+    Argument.optional
+  ),
+  out: Flag.String('out').pipe(
+    Flag.withAlias('o'),
+    Flag.withDescription('where to extract it'),
+    Flag.optional
+  ),
+}).pipe(
+  Command.withDescription('extract a package for editing'),
+  Command.withHandler(({ file, positional, out }) =>
+    Effect.gen(function* () {
+      // `unpack <file> <dir>` and `unpack <file> --out <dir>` both worked before
+      // Effect parsed the arguments, and both still do.
+      const target = Option.getOrUndefined(out) ?? Option.getOrUndefined(positional);
+      if (!target) {
+        yield* Output.err(red('unpack needs an output directory.'));
+        yield* Effect.sync(() => {
+          process.exitCode = 1;
+        });
+        return;
+      }
+      yield* runOutcome(commands.unpack(file, target));
+    })
+  )
+);
+
+const root = Command.make('muqun-theme').pipe(
+  Command.withDescription('build and check Muqun themes'),
+  Command.withSubcommands([init, validate, contrast, pack, unpack])
+);
+
+const AppLayer = Layer.mergeAll(
+  NodeServices.layer,
+  NodeStdio.layer,
+  NodeTerminal.layer,
+  Output.layer
+);
+
+/**
+ * Asking for help is not an error.
+ *
+ * Effect treats a bare invocation as a missing subcommand -- it prints the help
+ * but exits 1, and writes "Help requested" to stderr. Running the tool with no
+ * arguments to find out what it does is the most ordinary thing a person can do
+ * with it, and a CI job that does so should not fail. `help` is mapped for the
+ * same reason: it worked before Effect parsed the arguments, so it still does.
+ */
+const normalize = (argv: readonly string[]): readonly string[] =>
+  argv.length === 0 || argv[0] === 'help' ? ['--help'] : argv;
+
+export const run = (argv: readonly string[]): Promise<void> =>
+  Effect.runPromise(
+    Command.runWith(root, { version: VERSION })(normalize(argv)).pipe(
+      Effect.provide(AppLayer)
+    ) as Effect.Effect<void, unknown, never>
+  ).then(
+    () => undefined,
+    (error: unknown) => {
+      console.error(red(error instanceof Error ? error.message : String(error)));
+      process.exitCode = 1;
+    }
+  );
