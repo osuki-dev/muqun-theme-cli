@@ -1,5 +1,17 @@
 # @osuki-dev/muqun-theme
 
+## 1.6.0
+
+### Minor Changes
+
+- [#13](https://github.com/osuki-dev/muqun-theme-cli/pull/13) [`8c33ad3`](https://github.com/osuki-dev/muqun-theme-cli/commit/8c33ad33d02518f655376abfcda2a1eb852ccc3d) Thanks [@ryuhzk](https://github.com/ryuhzk)! - `preview` shows a theme in a browser while it is being edited.
+  `muqun-theme preview <dir|id>` serves the theme directory from
+  `http://127.0.0.1:4173/` (or `--port`), reading from disk on every request,
+  and opens `https://muqun.dev/themes/preview/?source=…` on it, where the page
+  re-reads the theme every two seconds and redraws when a byte changes.
+  `--no-open` only prints the addresses; `--site` points at another checkout of
+  the website. Ctrl-C stops the server.
+
 ## 1.5.0
 
 ### Minor Changes
