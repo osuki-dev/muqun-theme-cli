@@ -42,13 +42,17 @@ no dependency tree behind it.
 ## Commands
 
 ```
-muqun-theme init [slug] [--dir .]        scaffold a complete theme, with placeholder art
+muqun-theme init [id] [--dir dir]        scaffold a complete theme, with placeholder art
              [--colors-only]             ...or just a palette, with no assets
 muqun-theme validate <target>            schema, references, images, digests, limits
 muqun-theme contrast <target>            opacity floors and the colours that set them
-muqun-theme pack <dir> [--out file]      build a .muqun-theme, optimising artwork to WebP
+muqun-theme pack <dir|id> [--out file]   build a .muqun-theme, optimising artwork to WebP
              [--no-optimize]             ...keeping artwork exactly as authored
 muqun-theme unpack <file> [--out dir]    extract a package for editing
+muqun-theme check [root]                 every theme in a themes repository, src/ and dist/ agreeing
+muqun-theme index [root]                 write index.json, the catalogue of every packed theme
+muqun-theme list [--search q] [--page n] the published themes, from GitHub, searched and paged
+muqun-theme skill [--out file]           the agent authoring skill, printed or written to a file
 ```
 
 The author's loop is **init → edit → check → pack**:
@@ -64,6 +68,7 @@ muqun-theme pack ./grand-voyage --out grand-voyage.muqun-theme
 `<target>` accepts any of the three shapes a theme has on disk: a packed
 `.muqun-theme`, a bare `.muqun-theme.json` manifest, or a directory holding
 `theme.json` beside `assets/`. You never have to pack something just to check it.
+Inside a [themes repository](#themes-repositories) a bare id works too.
 
 ### Exit codes
 
@@ -88,11 +93,15 @@ Home identity and the material settings are filled in and wired to a file that
 exists. `pack` works on it before you have changed anything.
 
 ```
-$ muqun-theme init grand-voyage --dir ./grand-voyage
+$ muqun-theme init grand-voyage
 created grand-voyage/theme.json (10 decoration slots, 14 placeholder images)
   Replace the flat tints in assets/ with real artwork, or delete slots you do not want.
-  Next: muqun-theme contrast ./grand-voyage    then: muqun-theme pack ./grand-voyage
+  Next: muqun-theme contrast grand-voyage    then: muqun-theme pack grand-voyage
 ```
+
+Without `--dir`, the theme gets a directory named after its id: `./<id>`, or
+`src/<id>` inside a themes repository. A default location is never allowed to
+overwrite a theme that is already there; `--dir` writes wherever you say.
 
 That writes `theme.json` plus fourteen PNGs in `assets/` — about 47 KB in total:
 
@@ -387,6 +396,128 @@ unpacked grand-voyage into ./editable (theme.json + 0 asset(s))
 The cycle is lossless. Unpacking a package and repacking it reproduces the same
 manifest and the same asset bytes.
 
+## Themes repositories
+
+A themes repository is a directory holding `src/` and `dist/`:
+
+```
+src/<id>/theme.json         a theme as it is authored, beside its assets/
+dist/<id>.muqun-theme       the same theme, packed
+index.json                  the catalogue of everything in dist/, generated
+```
+
+That is the whole convention, and the tool detects it rather than being
+configured with it. Run inside such a directory:
+
+- `init <id>` writes `src/<id>/`, and refuses to overwrite one that exists.
+- `pack <id>` reads `src/<id>/` and writes `dist/<id>.muqun-theme`.
+- `validate <id>` and `contrast <id>` accept the bare id.
+- `index` rewrites `index.json` from `dist/`, and `check` fails until it has.
+
+Both directories are required, so an ordinary project with a `src/` of its own
+is never mistaken for one. [`osuki-dev/muqun-themes`](https://github.com/osuki-dev/muqun-themes)
+is laid out this way.
+
+### `check`
+
+Every theme in the repository, and whether `src/` and `dist/` agree:
+
+```
+$ muqun-theme check
+skills/muqun-theme/SKILL.md
+  matches this CLI (skill v1.2.0)
+src/grand-voyage
+valid Grand Voyage (grand-voyage 1.0.0)
+  10/32 asset(s), 3.81 MiB of artwork
+dist/grand-voyage.muqun-theme
+valid Grand Voyage (grand-voyage 1.0.0)
+  10/32 asset(s), 3.81 MiB of artwork
+index.json
+  current (1 theme(s))
+
+check ok 1 theme(s)
+```
+
+It fails, with exit code `1` and a line saying what to run, when:
+
+- a source or a package does not validate;
+- a source's directory name is not its `id`;
+- a source has no package, or a package has no source;
+- a package's `version` is not its source's, which is how "edited but not
+  repacked" is caught;
+- `index.json` is missing or is not what `dist/` would generate.
+
+It warns, without failing, when the repository's vendored copy of the agent
+skill differs from the one this CLI carries. A stale skill misinforms an agent;
+it breaks no theme.
+
+One command, so a repository needs no script of its own and CI runs exactly
+what a contributor runs: `bunx @osuki-dev/muqun-theme check`.
+
+### `index`
+
+Writes `index.json` at the repository root: one entry per package in `dist/`,
+sorted by id, with the metadata a reader wants before downloading anything.
+
+```jsonc
+{
+  "format": "muqun-themes-index",
+  "themes": [
+    {
+      "id": "grand-voyage", "name": "Grand Voyage", "version": "1.0.0",
+      "author": "…", "license": "…", "description": "…", "tags": ["…"],  // when the manifest has them
+      "package": "dist/grand-voyage.muqun-theme",
+      "bytes": 4123456, "sha256": "…", "assets": 10
+    }
+  ]
+}
+```
+
+Everything in it derives from `dist/` and nothing else, so two runs over the
+same tree produce the same bytes and `check` can hold it current by comparing.
+Only packed themes are listed: the index is what a reader can install. It is
+what `list` reads, and what the website's gallery reads, so both give the same
+answer from one request.
+
+### `list`
+
+The published themes, from GitHub:
+
+```
+$ muqun-theme list --search sea
+2 theme(s) matching "sea"  page 1/1  https://raw.githubusercontent.com/osuki-dev/muqun-themes/main/index.json
+grand-voyage  Grand Voyage  v1.0.0  by …  3.93 MiB
+              A long horizon, warm brass and deep water.
+              #warm #sea
+…
+  packages: https://github.com/osuki-dev/muqun-themes/tree/main/dist
+```
+
+`--search` is a case-insensitive substring over id, name, author, description
+and tags. `--page` and `--per-page` (default 20) page the result, and the
+footer names the next page when there is one. `--json` prints the same page as
+data, each entry carrying the `url` its package downloads from. `--repo` and
+`--ref` point at another repository or branch; `--from` reads a local file or
+any URL instead, which is how a repository lists itself before publishing and
+how the command is tested. A private repository is readable with
+`GITHUB_TOKEN` set.
+
+### `skill`
+
+The agent authoring skill, printed or written:
+
+```sh
+muqun-theme skill                                    # to stdout
+muqun-theme skill --out skills/muqun-theme/SKILL.md  # into the repository
+```
+
+The skill is what makes an agent produce an installable theme rather than a
+plausible mockup, and a themes repository keeps a copy where its agents look:
+`skills/muqun-theme/SKILL.md`, pointed at from `AGENTS.md`, linked from
+`.claude/skills/`. This is how that copy is made and refreshed, and `check`
+says when it is stale. The file is carried inside the executable, so it is the
+same bytes whichever way the tool was installed.
+
 ## The `.muqun-theme` format
 
 Enough detail to author one without reading the app's source. The app remains the
@@ -587,8 +718,11 @@ src/
   cli/
     output.ts        the one port this package declares: where words go
     theme-source.ts  the whole boundary to a disk, over Effect's FileSystem
+    repo.ts          the themes repository convention: src/, dist/, and the defaults they set
+    catalog.ts       index.json: built from dist/, read back for list, searched and paged
+    skill.ts         the agent skill, inlined into the executable at build time
     format.ts        every printed line, as pure functions
-    commands.ts      the five commands, as Effects
+    commands.ts      the nine commands, as Effects
     main.ts          argument parsing, help, exit codes
   cli.ts             the executable
 ```
@@ -630,10 +764,12 @@ authoring skill, so that drift would fail a test.
 asked to make a Muqun theme. It carries the workflow, the resource and surface
 rules, the boundaries, the full JSON Schema and a complete starter manifest — so
 an agent can produce an installable pack without reading the app's source. It
-ships in the npm tarball, so it is on disk after an install:
+ships in the npm tarball, and is carried inside the executable as well, so
+`muqun-theme skill` prints it wherever the tool was installed from:
 
 ```
 node_modules/@osuki-dev/muqun-theme/skills/muqun-theme/SKILL.md
+muqun-theme skill --out skills/muqun-theme/SKILL.md
 ```
 
 **It is generated upstream.** The file is produced in the Muqun app repository

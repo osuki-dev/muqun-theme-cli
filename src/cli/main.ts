@@ -4,6 +4,7 @@ import * as NodeTerminal from '@effect/platform-node/NodeTerminal';
 import { Effect, Layer, Option } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
 
+import { DEFAULT_REF, DEFAULT_REPO } from './catalog.js';
 import * as commands from './commands.js';
 import { red } from './format.js';
 import * as Output from './output.js';
@@ -73,8 +74,10 @@ const init = Command.make('init', {
   ),
   dir: Flag.String('dir').pipe(
     Flag.withAlias('d'),
-    Flag.withDescription('where to write the theme'),
-    Flag.withDefault('.')
+    Flag.withDescription(
+      'where to write the theme (default: src/<id> in a themes repository, ./<id> elsewhere)'
+    ),
+    Flag.optional
   ),
   colorsOnly: Flag.Boolean('colors-only').pipe(
     Flag.withDescription('write only a palette, with no assets'),
@@ -83,15 +86,21 @@ const init = Command.make('init', {
 }).pipe(
   Command.withDescription('scaffold a complete theme, with placeholder art'),
   Command.withHandler(({ slug, dir, colorsOnly }) =>
-    runOutcome(commands.init(Option.getOrUndefined(slug), dir, colorsOnly))
+    runOutcome(commands.init(Option.getOrUndefined(slug), Option.getOrUndefined(dir), colorsOnly))
   )
 );
 
 const pack = Command.make('pack', {
-  dir: Argument.Directory('dir').pipe(Argument.withDescription('a directory holding theme.json')),
+  dir: Argument.String('theme').pipe(
+    Argument.withDescription(
+      'a directory holding theme.json, or a theme id inside a themes repository'
+    )
+  ),
   out: Flag.String('out').pipe(
     Flag.withAlias('o'),
-    Flag.withDescription('where to write the .muqun-theme'),
+    Flag.withDescription(
+      'where to write the .muqun-theme (default: dist/<id>.muqun-theme in a themes repository)'
+    ),
     Flag.optional
   ),
   /*
@@ -142,9 +151,81 @@ const unpack = Command.make('unpack', {
   )
 );
 
+const check = Command.make('check', {
+  root: Argument.String('root').pipe(
+    Argument.withDescription('a themes repository: a directory holding src/ and dist/ (default: .)'),
+    Argument.optional
+  ),
+}).pipe(
+  Command.withDescription('every theme in a themes repository, and that src/ and dist/ agree'),
+  Command.withHandler(({ root }) => runOutcome(commands.check(Option.getOrUndefined(root))))
+);
+
+const skill = Command.make('skill', {
+  out: Flag.String('out').pipe(
+    Flag.withAlias('o'),
+    Flag.withDescription('write the skill to this file instead of printing it'),
+    Flag.optional
+  ),
+}).pipe(
+  Command.withDescription('the agent authoring skill, printed or written to a file'),
+  Command.withHandler(({ out }) => runOutcome(commands.skill(Option.getOrUndefined(out))))
+);
+
+const index = Command.make('index', {
+  root: Argument.String('root').pipe(
+    Argument.withDescription('a themes repository: a directory holding src/ and dist/ (default: .)'),
+    Argument.optional
+  ),
+}).pipe(
+  Command.withDescription('write index.json, the catalogue of every packed theme'),
+  Command.withHandler(({ root }) => runOutcome(commands.index(Option.getOrUndefined(root))))
+);
+
+const list = Command.make('list', {
+  search: Flag.String('search').pipe(
+    Flag.withAlias('s'),
+    Flag.withDescription('keep themes whose id, name, author, description or tags contain this'),
+    Flag.optional
+  ),
+  page: Flag.Int('page').pipe(Flag.withDescription('which page to show'), Flag.withDefault(1)),
+  perPage: Flag.Int('per-page').pipe(Flag.withDescription('themes per page'), Flag.withDefault(20)),
+  repo: Flag.String('repo').pipe(
+    Flag.withDescription('GitHub repository holding the themes'),
+    Flag.withDefault(DEFAULT_REPO)
+  ),
+  ref: Flag.String('ref').pipe(
+    Flag.withDescription('branch or tag to read from'),
+    Flag.withDefault(DEFAULT_REF)
+  ),
+  from: Flag.String('from').pipe(
+    Flag.withDescription('read the index from this file or URL instead of GitHub'),
+    Flag.optional
+  ),
+  json: Flag.Boolean('json').pipe(
+    Flag.withDescription('print the page as JSON'),
+    Flag.withDefault(false)
+  ),
+}).pipe(
+  Command.withDescription('the published themes, searchable and paged'),
+  Command.withHandler(({ search, page, perPage, repo, ref, from, json }) =>
+    runOutcome(
+      commands.list({
+        search: Option.getOrUndefined(search),
+        page,
+        perPage,
+        repo,
+        ref,
+        from: Option.getOrUndefined(from),
+        json,
+      })
+    )
+  )
+);
+
 const root = Command.make('muqun-theme').pipe(
   Command.withDescription('build and check Muqun themes'),
-  Command.withSubcommands([init, validate, contrast, pack, unpack])
+  Command.withSubcommands([init, validate, contrast, pack, unpack, check, index, list, skill])
 );
 
 const AppLayer = Layer.mergeAll(

@@ -4,7 +4,7 @@ import { formatThemeJson } from '../format-json.js';
 import { themeOpacityPolicy } from '../opacity-policy.js';
 import { packTheme, unpackTheme } from '../package.js';
 import { createThemeScaffold, scaffoldFiles } from '../scaffold.js';
-import { THEME_LIMITS } from '../schema.js';
+import { THEME_LIMITS, type ThemeManifest } from '../schema.js';
 import { createThemeStarter } from '../starter.js';
 import { verifyAssets, verifyManifest } from '../verify.js';
 import {
@@ -17,10 +17,32 @@ import {
   red,
   size,
   travel,
+  yellow,
 } from './format.js';
 import { optimizeAssets } from './optimize.js';
 import { out } from './output.js';
 import type { Output } from './output.js';
+import {
+  DIST_DIR,
+  SKILL_PATH,
+  SRC_DIR,
+  detectRepo,
+  packageFileFor,
+  packageName,
+  resolveThemeDir,
+  sourceDirFor,
+} from './repo.js';
+import { SKILL_TEXT, skillVersion } from './skill.js';
+import {
+  INDEX_FILE,
+  buildIndex,
+  indexUrl,
+  packageUrl,
+  parseIndex,
+  readIndexSource,
+  renderIndex,
+  selectPage,
+} from './catalog.js';
 import {
   CommandError,
   declaredAssets,
@@ -47,7 +69,16 @@ export type Outcome = { readonly ok: boolean };
 const ok: Outcome = { ok: true };
 const bad: Outcome = { ok: false };
 
-export const validate = (target: string): Effect.Effect<Outcome, CommandError, Env> =>
+/**
+ * Everything `validate` prints, plus the manifest it read.
+ *
+ * Split from `validate` so `check` can run the same report over every theme in
+ * a repository and still compare ids and versions afterwards, without a second
+ * parse and without reprinting anything.
+ */
+const inspect = (
+  target: string
+): Effect.Effect<{ readonly ok: boolean; readonly manifest: ThemeManifest }, CommandError, Env> =>
   Effect.gen(function* () {
     const { manifest, assets, raw } = yield* readTheme(target);
     const issues = [...verifyManifest(manifest, raw)];
@@ -68,8 +99,11 @@ export const validate = (target: string): Effect.Effect<Outcome, CommandError, E
       yield* out(dim(`  ${count}/${THEME_LIMITS.assets} asset(s), ${size(bytes)} of artwork`));
     }
     for (const line of issueLines(issues)) yield* out(line);
-    return errors ? bad : ok;
+    return { ok: errors === 0, manifest };
   });
+
+export const validate = (target: string): Effect.Effect<Outcome, CommandError, Env> =>
+  Effect.map(inspect(target), (result) => (result.ok ? ok : bad));
 
 /**
  * The opacity floor, and the colour pairs that set it.
@@ -135,12 +169,14 @@ export const contrast = (target: string): Effect.Effect<Outcome, CommandError, E
   });
 
 export const pack = (
-  dir: string,
+  target: string,
   output?: string,
   optimize = true
 ): Effect.Effect<Outcome, CommandError, Env> =>
   Effect.gen(function* () {
     const path = yield* Path.Path;
+    // `pack grand-voyage` inside a themes repository means `pack src/grand-voyage`.
+    const dir = yield* resolveThemeDir(target);
     const root = path.resolve(dir);
     const { manifest: sourceManifest, raw: sourceRaw } = yield* readManifestFile(
       path.join(root, 'theme.json')
@@ -206,8 +242,11 @@ export const pack = (
       try: () => packTheme({ manifest, assets }),
       catch: (error) => fail(error instanceof Error ? error.message : String(error)),
     });
-    const target = path.resolve(output ?? `${manifest.id}.muqun-theme`);
-    yield* writeFile(target, bytes);
+    // Without --out, a repository gets dist/<id>.muqun-theme and anywhere else
+    // gets <id>.muqun-theme beside the author.
+    const file = output ?? (yield* packageFileFor(manifest.id));
+    const written = path.resolve(file);
+    yield* writeFile(written, bytes);
 
     // Round trip through the importer the phone runs, so "it packed" and "it
     // installs" are the same claim rather than two hopeful ones.
@@ -220,7 +259,7 @@ export const pack = (
       return yield* Effect.fail(fail('Round trip lost an asset.'));
 
     yield* out(
-      `${green('packed')} ${path.basename(target)}  ${size(bytes.length)}  ` +
+      `${green('packed')} ${file}  ${size(bytes.length)}  ` +
         `${Object.keys(assets).length} asset(s)  ${dim('round trip ok')}`
     );
     yield* out(dim(`  package limit ${size(THEME_LIMITS.packageBytes)}`));
@@ -255,13 +294,31 @@ export const unpack = (file: string, dir: string): Effect.Effect<Outcome, Comman
 
 export const init = (
   slug: string | undefined,
-  dir: string,
+  dirArg: string | undefined,
   colorsOnly: boolean
 ): Effect.Effect<Outcome, CommandError, Env> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    /*
+     * Without --dir, the theme gets a directory of its own named after its id:
+     * src/<id> inside a themes repository, ./<id> anywhere else. Scaffolding
+     * fourteen images into whatever directory the author happened to be in was
+     * never what anyone meant.
+     */
+    const dir = dirArg ?? (yield* sourceDirFor(slug ?? createThemeStarter().id));
     const root = path.resolve(dir);
+    // A location chosen by default is never allowed to overwrite a theme that is
+    // already there. An explicit --dir is an explicit wish and still is.
+    if (dirArg === undefined) {
+      const taken = yield* fs
+        .exists(path.join(root, 'theme.json'))
+        .pipe(Effect.orElseSucceed(() => false));
+      if (taken)
+        return yield* Effect.fail(
+          fail(`${dir} already holds a theme.json. Pick another id, or pass --dir to write there on purpose.`)
+        );
+    }
     yield* fs
       .makeDirectory(path.join(root, 'assets'), { recursive: true })
       .pipe(Effect.mapError(() => fail(`Could not create ${dir}.`)));
@@ -297,5 +354,253 @@ export const init = (
       dim('  Replace the flat tints in assets/ with real artwork, or delete slots you do not want.')
     );
     yield* out(dim(`  Next: muqun-theme contrast ${dir}    then: muqun-theme pack ${dir}`));
+    return ok;
+  });
+
+/**
+ * Every theme in a themes repository, and whether `src/` and `dist/` agree.
+ *
+ * The repository convention is small -- a source in `src/<id>/`, its package
+ * in `dist/<id>.muqun-theme` -- and this is the whole of enforcing it: each
+ * source validates, each package validates, a source's directory name is its
+ * id, each has the other, and the package carries the source's version. A
+ * repository that also vendors the agent skill is told when that copy has
+ * fallen behind the CLI checking it; that is a warning, because a stale skill
+ * misinforms an agent but does not break a theme.
+ *
+ * One command, so the repository needs no script of its own and CI runs
+ * exactly what a contributor runs.
+ */
+export const check = (rootArg = '.'): Effect.Effect<Outcome, CommandError, Env> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const repo = yield* detectRepo(rootArg);
+    if (!repo)
+      return yield* Effect.fail(
+        fail(
+          `${rootArg} is not a themes repository: expected ${SRC_DIR}/ and ${DIST_DIR}/ directories.`
+        )
+      );
+
+    let failed = false;
+    const problem = (message: string) =>
+      Effect.gen(function* () {
+        failed = true;
+        yield* out(`  ${red('error  ')} ${message}`);
+      });
+    const exists = (file: string) => fs.exists(file).pipe(Effect.orElseSucceed(() => false));
+    const list = (dir: string) =>
+      fs.readDirectory(dir).pipe(
+        Effect.orElseSucceed(() => [] as string[]),
+        Effect.map((names) => [...names].sort())
+      );
+
+    const skillFile = path.join(repo.root, SKILL_PATH);
+    if (yield* exists(skillFile)) {
+      const text = yield* fs.readFileString(skillFile).pipe(Effect.orElseSucceed(() => ''));
+      yield* out(bold(SKILL_PATH));
+      if (text === SKILL_TEXT) yield* out(dim(`  matches this CLI (skill v${skillVersion()})`));
+      else
+        yield* out(
+          `  ${yellow('warning')} differs from the skill this CLI carries (v${skillVersion()})` +
+            dim(` -- run: muqun-theme skill --out ${SKILL_PATH}`)
+        );
+    }
+
+    const sourceIds: string[] = [];
+    for (const name of yield* list(repo.src))
+      if (yield* exists(path.join(repo.src, name, 'theme.json'))) sourceIds.push(name);
+    const packages = (yield* list(repo.dist)).filter((name) => name.endsWith('.muqun-theme'));
+
+    /** `validate`'s report under a heading, surviving a manifest that will not parse. */
+    const report = (label: string, target: string) =>
+      Effect.gen(function* () {
+        yield* out(bold(label));
+        const result = yield* inspect(target).pipe(
+          Effect.catchTag('CommandError', (error) =>
+            Effect.gen(function* () {
+              yield* problem(error.message);
+              return undefined;
+            })
+          )
+        );
+        if (result && !result.ok) failed = true;
+        return result?.manifest;
+      });
+
+    for (const id of sourceIds) {
+      const source = yield* report(`${SRC_DIR}/${id}`, path.join(repo.src, id));
+      if (source && source.id !== id)
+        yield* problem(`theme id "${source.id}" does not match its directory ${SRC_DIR}/${id}/`);
+
+      const file = packageName(id);
+      if (!packages.includes(file)) {
+        yield* problem(`${DIST_DIR}/${file} is missing -- run: muqun-theme pack ${id}`);
+        continue;
+      }
+      const packed = yield* report(`${DIST_DIR}/${file}`, path.join(repo.dist, file));
+      if (!source || !packed) continue;
+      if (packed.id !== source.id)
+        yield* problem(
+          `${DIST_DIR}/${file} holds "${packed.id}", not "${source.id}" -- run: muqun-theme pack ${id}`
+        );
+      else if (packed.version !== source.version)
+        yield* problem(
+          `${DIST_DIR}/${file} is ${packed.version} but ${SRC_DIR}/${id} is ${source.version}` +
+            ` -- run: muqun-theme pack ${id}`
+        );
+    }
+
+    for (const file of packages) {
+      const id = file.slice(0, -'.muqun-theme'.length);
+      if (sourceIds.includes(id)) continue;
+      yield* out(bold(`${DIST_DIR}/${file}`));
+      yield* problem(`has no source in ${SRC_DIR}/${id}/ -- every package is built from a source here`);
+    }
+
+    // The catalogue is generated from dist/, so "current" is a byte comparison.
+    // A package that would not unpack was already reported above; skip the
+    // comparison then rather than blaming the index for it.
+    const expected = yield* buildIndex(repo).pipe(
+      Effect.catchTag('CommandError', () => Effect.succeed(undefined))
+    );
+    if (expected) {
+      yield* out(bold(INDEX_FILE));
+      const current = yield* fs.readFileString(path.join(repo.root, INDEX_FILE)).pipe(Effect.option);
+      if (current._tag === 'None') yield* problem(`${INDEX_FILE} is missing -- run: muqun-theme index`);
+      else if (current.value !== renderIndex(expected))
+        yield* problem(`${INDEX_FILE} does not match ${DIST_DIR}/ -- run: muqun-theme index`);
+      else yield* out(dim(`  current (${expected.themes.length} theme(s))`));
+    }
+
+    yield* out('');
+    if (failed) {
+      yield* out(red('check failed'));
+      return bad;
+    }
+    yield* out(
+      `${green('check ok')} ${dim(sourceIds.length ? `${sourceIds.length} theme(s)` : 'no themes yet')}`
+    );
+    return ok;
+  });
+
+/**
+ * The agent authoring skill, printed or written to a file.
+ *
+ * The skill is what makes an agent produce an installable theme rather than a
+ * plausible mockup, so a themes repository keeps a copy where its agents look.
+ * This is how that copy is made and refreshed; `check` says when it is stale.
+ */
+export const skill = (outFile?: string): Effect.Effect<Outcome, CommandError, Env> =>
+  Effect.gen(function* () {
+    if (!outFile) {
+      yield* out(SKILL_TEXT.replace(/\n$/, ''));
+      return ok;
+    }
+    yield* writeText(outFile, SKILL_TEXT);
+    yield* out(`${green('wrote')} ${outFile} ${dim(`(skill v${skillVersion()})`)}`);
+    return ok;
+  });
+
+/**
+ * Write the repository's catalogue, `index.json`, from what is packed.
+ *
+ * `check` holds it current; `list` and the website read it. Generated rather
+ * than maintained, so it can never disagree with `dist/`.
+ */
+export const index = (rootArg = '.'): Effect.Effect<Outcome, CommandError, Env> =>
+  Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const repo = yield* detectRepo(rootArg);
+    if (!repo)
+      return yield* Effect.fail(
+        fail(
+          `${rootArg} is not a themes repository: expected ${SRC_DIR}/ and ${DIST_DIR}/ directories.`
+        )
+      );
+    const catalogue = yield* buildIndex(repo);
+    yield* writeText(path.join(repo.root, INDEX_FILE), renderIndex(catalogue));
+    yield* out(`${green('wrote')} ${INDEX_FILE} ${dim(`(${catalogue.themes.length} theme(s))`)}`);
+    return ok;
+  });
+
+export type ListOptions = {
+  /** A local file or URL to read the index from, instead of GitHub. */
+  readonly from?: string;
+  readonly repo: string;
+  readonly ref: string;
+  readonly search?: string;
+  readonly page: number;
+  readonly perPage: number;
+  readonly json: boolean;
+};
+
+/**
+ * The published themes, searched and paged.
+ *
+ * One request for the index, then everything else happens here, so the command
+ * stays usable when the catalogue is long and works the same against a local
+ * file. `--json` is the same page as data, for scripts and for anything that
+ * wants to render it differently.
+ */
+export const list = (options: ListOptions): Effect.Effect<Outcome, CommandError, Env> =>
+  Effect.gen(function* () {
+    const source = options.from ?? indexUrl(options.repo, options.ref);
+    const catalogue = yield* parseIndex(yield* readIndexSource(source));
+    const page = selectPage(catalogue, options);
+    const remote = options.from === undefined;
+
+    if (options.json) {
+      const entries = page.entries.map((entry) => ({
+        ...entry,
+        ...(remote && { url: packageUrl(options.repo, options.ref, entry) }),
+      }));
+      yield* out(JSON.stringify({ source, ...page, entries }, null, 2));
+      return page.page <= page.pages ? ok : bad;
+    }
+
+    if (page.total === 0) {
+      yield* out(`no themes published yet ${dim(`(${source})`)}`);
+      return ok;
+    }
+    const wanted = JSON.stringify(options.search ?? '');
+    if (page.matched === 0) {
+      yield* out(`no themes match ${wanted} ${dim(`(${page.total} in ${source})`)}`);
+      return ok;
+    }
+    if (page.page > page.pages) {
+      yield* out(red(`page ${page.page} is past the end: ${page.pages} page(s) of ${options.perPage}.`));
+      return bad;
+    }
+
+    yield* out(
+      dim(
+        `${page.matched} theme(s)` +
+          (options.search ? ` matching ${wanted}` : '') +
+          `  page ${page.page}/${page.pages}  ${source}`
+      )
+    );
+    const width = Math.max(...page.entries.map((entry) => entry.id.length));
+    const indent = ' '.repeat(width + 2);
+    for (const entry of page.entries) {
+      yield* out(
+        `${bold(entry.id.padEnd(width))}  ${entry.name}  ${dim(`v${entry.version}`)}` +
+          (entry.author ? dim(`  by ${entry.author}`) : '') +
+          dim(`  ${size(entry.bytes)}`)
+      );
+      if (entry.description) yield* out(dim(`${indent}${entry.description}`));
+      if (entry.tags?.length)
+        yield* out(dim(`${indent}${entry.tags.map((tag) => `#${tag}`).join(' ')}`));
+    }
+    if (page.page < page.pages)
+      yield* out(
+        dim(
+          `  next: muqun-theme list --page ${page.page + 1}` +
+            (options.search ? ` --search ${wanted}` : '')
+        )
+      );
+    if (remote)
+      yield* out(dim(`  packages: https://github.com/${options.repo}/tree/${options.ref}/${DIST_DIR}`));
     return ok;
   });
