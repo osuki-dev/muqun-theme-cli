@@ -1,5 +1,16 @@
 # @osuki-dev/muqun-theme
 
+## 1.3.0
+
+### Minor Changes
+
+- [#6](https://github.com/osuki-dev/muqun-theme-cli/pull/6) [`f4f289a`](https://github.com/osuki-dev/muqun-theme-cli/commit/f4f289a5d3a5d22fd2f10a5ffbae0c198f94fac2) Thanks [@ryuhzk](https://github.com/ryuhzk)! - `build` is incremental. Each index entry now carries a `sourceDigest`, a hash
+  of `theme.json` and every declared asset. With the previous `dist/` and
+  `index.json` present, a source whose digest is unchanged, and whose package
+  still has the bytes the index records, is kept rather than repacked, so a
+  merge that touched one theme repacks one theme and everything else keeps its
+  `sha256`. `build --force` repacks all.
+
 ## 1.2.0
 
 ### Minor Changes
