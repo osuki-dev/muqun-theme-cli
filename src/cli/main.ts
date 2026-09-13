@@ -174,9 +174,15 @@ const build = Command.make('build', {
     Argument.withDescription('a themes repository: a directory holding src/ and dist/ (default: .)'),
     Argument.optional
   ),
+  force: Flag.Boolean('force').pipe(
+    Flag.withDescription('repack every source, even one whose package is current'),
+    Flag.withDefault(false)
+  ),
 }).pipe(
   Command.withDescription('pack every source into dist/ and regenerate index.json'),
-  Command.withHandler(({ root }) => runOutcome(commands.build(Option.getOrUndefined(root))))
+  Command.withHandler(({ root, force }) =>
+    runOutcome(commands.build(Option.getOrUndefined(root), force))
+  )
 );
 
 const skill = Command.make('skill', {

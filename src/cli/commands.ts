@@ -42,7 +42,9 @@ import {
   readIndexSource,
   renderIndex,
   selectPage,
+  sourceDigest,
 } from './catalog.js';
+import { sha256 } from '../digest.js';
 import {
   CommandError,
   declaredAssets,
@@ -687,19 +689,62 @@ export const list = (options: ListOptions): Effect.Effect<Outcome, CommandError,
  * is gone is removed -- and the index is written last, from the result, so it
  * cannot describe anything that is not there. A source that will not pack
  * fails the build before the index is touched.
+ *
+ * Incremental by default. When the previous build is present -- `dist/` and
+ * an `index.json` carrying source digests -- a source whose digest has not
+ * changed, and whose package is still the bytes the index says it is, is kept
+ * as is rather than repacked. So a merge that touched one theme repacks one
+ * theme, its package bytes and sha256 stay stable for everything else, and
+ * whatever mirrors `dist/` can upload only what differs. `force` repacks all.
  */
-export const build = (rootArg = '.'): Effect.Effect<Outcome, CommandError, Env> =>
+export const build = (rootArg = '.', force = false): Effect.Effect<Outcome, CommandError, Env> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const repo = yield* detectRepo(rootArg);
     if (!repo) return yield* Effect.fail(notARepo(rootArg));
 
+    // The previous catalogue, if there is one to be incremental against.
+    const previous = force
+      ? undefined
+      : yield* fs.readFileString(path.join(repo.root, INDEX_FILE)).pipe(
+          Effect.flatMap(parseIndex),
+          Effect.option,
+          Effect.map((option) => (option._tag === 'Some' ? option.value : undefined))
+        );
+
     let failed = false;
+    let reused = 0;
     const kept = new Set<string>();
     for (const id of yield* listSources(repo)) {
       yield* out(bold(`${SRC_DIR}/${id}`));
-      const built = yield* buildPackage(path.join(repo.src, id), true).pipe(
+      const dir = path.join(repo.src, id);
+      const file = packageName(id);
+
+      const prior = previous?.themes.find((entry) => entry.id === id);
+      if (prior?.sourceDigest) {
+        // Unchanged source and an intact package: nothing to do for this one.
+        // Any failure here -- a source that no longer parses, a missing asset --
+        // falls through to a real pack, which reports it properly.
+        const digest = yield* readManifestFile(path.join(dir, 'theme.json')).pipe(
+          Effect.flatMap((loaded) => sourceDigest(dir, loaded.manifest)),
+          Effect.option
+        );
+        const packed = yield* fs.readFile(path.join(repo.dist, file)).pipe(Effect.option);
+        if (
+          digest._tag === 'Some' &&
+          digest.value === prior.sourceDigest &&
+          packed._tag === 'Some' &&
+          sha256(packed.value) === prior.sha256
+        ) {
+          kept.add(file);
+          reused += 1;
+          yield* out(dim(`  kept ${DIST_DIR}/${file}  source unchanged since it was packed`));
+          continue;
+        }
+      }
+
+      const built = yield* buildPackage(dir, true).pipe(
         Effect.catchTag('CommandError', (error) =>
           Effect.gen(function* () {
             yield* problemLine(error.message);
@@ -716,7 +761,6 @@ export const build = (rootArg = '.'): Effect.Effect<Outcome, CommandError, Env> 
         failed = true;
         continue;
       }
-      const file = packageName(id);
       yield* writeFile(path.join(repo.dist, file), built.bytes);
       kept.add(file);
       yield* out(
@@ -740,7 +784,8 @@ export const build = (rootArg = '.'): Effect.Effect<Outcome, CommandError, Env> 
     const catalogue = yield* buildIndex(repo);
     yield* writeText(path.join(repo.root, INDEX_FILE), renderIndex(catalogue));
     yield* out(
-      `${green('built')} ${catalogue.themes.length} theme(s) ${dim(`into ${DIST_DIR}/ and ${INDEX_FILE}`)}`
+      `${green('built')} ${catalogue.themes.length} theme(s) ` +
+        dim(`into ${DIST_DIR}/ and ${INDEX_FILE}` + (reused ? `, ${reused} kept from the previous build` : ''))
     );
     return ok;
   });

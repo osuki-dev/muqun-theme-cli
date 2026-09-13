@@ -1,9 +1,12 @@
+import { createHash } from 'node:crypto';
+
 import { Effect, FileSystem, Path } from 'effect';
 
 import { sha256 } from '../digest.js';
 import { unpackTheme } from '../package.js';
+import type { ThemeManifest } from '../schema.js';
 import { DIST_DIR, type ThemesRepo } from './repo.js';
-import { CommandError, fail } from './theme-source.js';
+import { CommandError, declaredAssets, fail, readManifestFile } from './theme-source.js';
 
 /**
  * The catalogue of a themes repository, as one file.
@@ -45,7 +48,45 @@ export type IndexEntry = {
   readonly bytes: number;
   readonly sha256: string;
   readonly assets: number;
+  /**
+   * A digest of the source the package was built from: `theme.json` and every
+   * declared asset. `build` compares it to the current source to decide
+   * whether a package needs repacking, which is what lets a repository of many
+   * themes rebuild -- and re-upload -- only the ones a merge actually touched.
+   * Absent when the index was written without the source at hand.
+   */
+  readonly sourceDigest?: string;
 };
+
+/**
+ * The digest of a theme source, as `build` uses it.
+ *
+ * Over the bytes of `theme.json` and of every declared asset, each prefixed
+ * by its id and path so a renamed file changes the digest too. Deliberately
+ * the source and not the package: packing converts artwork and rewrites
+ * digests, so two packs of one source need not be byte-identical, but one
+ * source has exactly one digest.
+ */
+export const sourceDigest = (
+  dir: string,
+  manifest: ThemeManifest
+): Effect.Effect<string, CommandError, FileSystem.FileSystem | Path.Path> =>
+  Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const hash = createHash('sha256');
+    const json = yield* fs
+      .readFile(path.join(dir, 'theme.json'))
+      .pipe(Effect.mapError(() => fail(`Expected a theme.json in ${dir}.`)));
+    hash.update('theme.json\0').update(json).update('\0');
+    const assets = yield* declaredAssets(dir, manifest);
+    for (const id of Object.keys(assets).sort()) {
+      const asset = manifest.assets?.[id];
+      const file = asset && 'path' in asset ? asset.path : '';
+      hash.update(`${id}\0${file}\0`).update(assets[id]!).update('\0');
+    }
+    return hash.digest('hex');
+  });
 
 export type ThemesIndex = {
   readonly format: typeof INDEX_FORMAT;
@@ -76,6 +117,13 @@ export const buildIndex = (
         catch: (error) =>
           fail(`${DIST_DIR}/${name}: ${error instanceof Error ? error.message : String(error)}`),
       });
+      // The source digest, when the source is here to digest. A package whose
+      // source is gone or broken is check's problem; the index still lists it.
+      const source = path.join(repo.src, manifest.id);
+      const digest = yield* readManifestFile(path.join(source, 'theme.json')).pipe(
+        Effect.flatMap((loaded) => sourceDigest(source, loaded.manifest)),
+        Effect.option
+      );
       themes.push({
         id: manifest.id,
         name: manifest.name,
@@ -90,6 +138,7 @@ export const buildIndex = (
         bytes: bytes.length,
         sha256: sha256(bytes),
         assets: Object.keys(assets).length,
+        ...(digest._tag === 'Some' && { sourceDigest: digest.value }),
       });
     }
     return { format: INDEX_FORMAT, themes };
