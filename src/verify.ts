@@ -56,6 +56,9 @@ export function assetUsage(manifest: ThemeManifest): Map<string, Set<string>> {
     if (icon) note(icon.asset, `icons.${name}`);
   if (manifest.homeIdentity?.logo?.mode === 'custom')
     note(manifest.homeIdentity.logo.asset, 'homeIdentity.logo');
+  // The gallery draws it; the app does not. Still a use, or every theme that
+  // ships a preview would be told its preview is never drawn.
+  if (manifest.preview) note(manifest.preview, 'preview');
   return usage;
 }
 

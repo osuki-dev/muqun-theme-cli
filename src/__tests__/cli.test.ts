@@ -140,6 +140,20 @@ test('validate names the decoration slots a theme leaves unset', () => {
   expect(result.stdout).toContain('8/10 decoration slots filled');
   expect(result.stdout).toContain('unset: home.background, home.decoration');
 
+  // A declared preview image counts as used: the gallery draws it.
+  const previewed = scratch();
+  run('init', 'shown', '--dir', previewed);
+  const pf = join(previewed, 'theme.json');
+  const pm = JSON.parse(readFileSync(pf, 'utf8'));
+  pm.assets.cover = { path: 'assets/cover.png' };
+  writeFileSync(join(previewed, 'assets', 'cover.png'), readFileSync(join(previewed, 'assets', 'shell-light.png')));
+  pm.preview = 'cover';
+  writeFileSync(pf, JSON.stringify(pm));
+  const shown = run('validate', previewed);
+  expect(shown.code).toBe(0);
+  expect(shown.stdout).not.toContain('never drawn');
+  expect(shown.stdout).not.toContain('no preview declared');
+
   // A palette-only theme fills nothing, and that is a note, not a warning.
   const palette = scratch();
   run('init', '--colors-only', '--dir', palette);
