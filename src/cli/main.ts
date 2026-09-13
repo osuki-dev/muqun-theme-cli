@@ -8,6 +8,7 @@ import { DEFAULT_API } from './catalog.js';
 import * as commands from './commands.js';
 import { red } from './format.js';
 import * as Output from './output.js';
+import { DEFAULT_PORT, DEFAULT_SITE, HOST } from './preview-server.js';
 import type { CommandError } from './theme-source.js';
 
 import pkg from '../../package.json' with { type: 'json' };
@@ -151,6 +152,34 @@ const unpack = Command.make('unpack', {
   )
 );
 
+const preview = Command.make('preview', {
+  target: Argument.String('theme').pipe(
+    Argument.withDescription(
+      'a directory holding theme.json, or a theme id inside a themes repository (default: .)'
+    ),
+    Argument.optional
+  ),
+  port: Flag.Int('port').pipe(
+    Flag.withDescription(`serve on this port of ${HOST} (default: ${DEFAULT_PORT})`),
+    Flag.withDefault(DEFAULT_PORT)
+  ),
+  noOpen: Flag.Boolean('no-open').pipe(
+    Flag.withDescription('print the preview URL without opening a browser'),
+    Flag.withDefault(false)
+  ),
+  site: Flag.String('site').pipe(
+    Flag.withDescription(
+      `the website whose preview page to open (default: ${DEFAULT_SITE}; a local checkout is http://localhost:4321)`
+    ),
+    Flag.withDefault(DEFAULT_SITE)
+  ),
+}).pipe(
+  Command.withDescription("show a theme in a browser while you edit it, on the website's live preview"),
+  Command.withHandler(({ target, port, noOpen, site }) =>
+    runOutcome(commands.preview(Option.getOrUndefined(target) ?? '.', { port, site, open: !noOpen }))
+  )
+);
+
 const check = Command.make('check', {
   root: Argument.String('root').pipe(
     Argument.withDescription('a themes repository: a directory holding src/ and dist/ (default: .)'),
@@ -239,7 +268,19 @@ const list = Command.make('list', {
 
 const root = Command.make('muqun-theme').pipe(
   Command.withDescription('build and check Muqun themes'),
-  Command.withSubcommands([init, validate, contrast, pack, unpack, check, build, index, list, skill])
+  Command.withSubcommands([
+    init,
+    validate,
+    contrast,
+    pack,
+    unpack,
+    preview,
+    check,
+    build,
+    index,
+    list,
+    skill,
+  ])
 );
 
 const AppLayer = Layer.mergeAll(
