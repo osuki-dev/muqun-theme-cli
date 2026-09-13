@@ -1,5 +1,22 @@
 # @osuki-dev/muqun-theme
 
+## 1.2.0
+
+### Minor Changes
+
+- [#3](https://github.com/osuki-dev/muqun-theme-cli/pull/3) [`3b629a8`](https://github.com/osuki-dev/muqun-theme-cli/commit/3b629a8359c2365a78cc99d6b377b35c89193e14) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Sources are reviewed; artefacts are built.
+
+  - `build [root]` packs every source in `src/` into `dist/`, removes packages
+    whose source is gone, and regenerates `index.json` from the result. This is
+    what CI runs after a merge.
+  - `check --sources` validates every source and packs it in memory to prove it
+    can be, keeping nothing and ignoring `dist/` and `index.json`. This is what
+    CI runs on a pull request, which now carries only `src/<id>/`.
+  - `list` defaults to the `release` branch, where CI publishes `dist/` and
+    `index.json`.
+  - `pack` is now a thin write around the shared packing step, so `pack`,
+    `build` and `check --sources` cannot disagree about what packs.
+
 ## 1.1.0
 
 ### Minor Changes
