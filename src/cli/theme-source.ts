@@ -103,7 +103,18 @@ export const readTheme = (
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const resolved = path.resolve(target);
+    /*
+     * A bare id inside a themes repository names src/<id>. The fallback applies
+     * only when the argument matches nothing on disk, so a real file or
+     * directory by that name always wins.
+     */
+    const direct = path.resolve(target);
+    const inRepo = path.resolve('src', target);
+    const found = yield* fs.exists(direct).pipe(Effect.orElseSucceed(() => false));
+    const resolved =
+      !found && (yield* fs.exists(inRepo).pipe(Effect.orElseSucceed(() => false)))
+        ? inRepo
+        : direct;
 
     const info = yield* fs
       .stat(resolved)
