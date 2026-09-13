@@ -1,5 +1,12 @@
 # @osuki-dev/muqun-theme
 
+## 1.4.0
+
+### Minor Changes
+
+- [#8](https://github.com/osuki-dev/muqun-theme-cli/pull/8) [`f7473f7`](https://github.com/osuki-dev/muqun-theme-cli/commit/f7473f74774b38a4e87a2b456f0ba7b7f130c58d) Thanks [@ryuhzk](https://github.com/ryuhzk)! - `list` reads `https://muqun.dev/api/themes/` by default. `--repo` and `--ref`
+  are gone; `--from` still takes any URL or a local `index.json`.
+
 ## 1.3.0
 
 ### Minor Changes
