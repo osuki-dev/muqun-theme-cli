@@ -479,9 +479,10 @@ alone never fail a command. Report only what the tool actually printed.
 
 ### In a themes repository
 
-A themes repository is a directory holding `src/` and `dist/`. Inside one,
-`muqun-theme init <id>` writes `src/<id>/`, and `validate` and `contrast`
-accept the bare id. Your deliverable is the source directory only: `dist/` and
+A themes repository is a directory holding `src/` and `dist/`. Before choosing
+an id, run `muqun-theme list --search <word>` to see what is already
+published; ids must be unique. Inside the repository, `muqun-theme init <id>`
+writes `src/<id>/`, and `validate` and `contrast` accept the bare id. Your deliverable is the source directory only: `dist/` and
 `index.json` are built by CI after the merge, so do not commit a package or an
 index. Finish with `muqun-theme check --sources`, which validates every source
 and proves it packs; report its result as printed. (`muqun-theme pack <id>`

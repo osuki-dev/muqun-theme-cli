@@ -4,7 +4,7 @@ import * as NodeTerminal from '@effect/platform-node/NodeTerminal';
 import { Effect, Layer, Option } from 'effect';
 import { Argument, Command, Flag } from 'effect/unstable/cli';
 
-import { DEFAULT_REF, DEFAULT_REPO } from './catalog.js';
+import { DEFAULT_API } from './catalog.js';
 import * as commands from './commands.js';
 import { red } from './format.js';
 import * as Output from './output.js';
@@ -214,16 +214,8 @@ const list = Command.make('list', {
   ),
   page: Flag.Int('page').pipe(Flag.withDescription('which page to show'), Flag.withDefault(1)),
   perPage: Flag.Int('per-page').pipe(Flag.withDescription('themes per page'), Flag.withDefault(20)),
-  repo: Flag.String('repo').pipe(
-    Flag.withDescription('GitHub repository holding the themes'),
-    Flag.withDefault(DEFAULT_REPO)
-  ),
-  ref: Flag.String('ref').pipe(
-    Flag.withDescription('branch or tag to read from'),
-    Flag.withDefault(DEFAULT_REF)
-  ),
   from: Flag.String('from').pipe(
-    Flag.withDescription('read the index from this file or URL instead of GitHub'),
+    Flag.withDescription(`read the index from this file or URL instead of ${DEFAULT_API}`),
     Flag.optional
   ),
   json: Flag.Boolean('json').pipe(
@@ -232,14 +224,12 @@ const list = Command.make('list', {
   ),
 }).pipe(
   Command.withDescription('the published themes, searchable and paged'),
-  Command.withHandler(({ search, page, perPage, repo, ref, from, json }) =>
+  Command.withHandler(({ search, page, perPage, from, json }) =>
     runOutcome(
       commands.list({
         search: Option.getOrUndefined(search),
         page,
         perPage,
-        repo,
-        ref,
         from: Option.getOrUndefined(from),
         json,
       })

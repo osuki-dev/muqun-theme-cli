@@ -34,6 +34,7 @@ import {
 } from './repo.js';
 import { SKILL_TEXT, skillVersion } from './skill.js';
 import {
+  DEFAULT_API,
   INDEX_FILE,
   buildIndex,
   indexUrl,
@@ -601,10 +602,8 @@ export const index = (rootArg = '.'): Effect.Effect<Outcome, CommandError, Env> 
   });
 
 export type ListOptions = {
-  /** A local file or URL to read the index from, instead of GitHub. */
+  /** A local file or URL to read the index from, instead of the API. */
   readonly from?: string;
-  readonly repo: string;
-  readonly ref: string;
   readonly search?: string;
   readonly page: number;
   readonly perPage: number;
@@ -614,23 +613,23 @@ export type ListOptions = {
 /**
  * The published themes, searched and paged.
  *
- * One request for the index, then everything else happens here, so the command
- * stays usable when the catalogue is long and works the same against a local
- * file. `--json` is the same page as data, for scripts and for anything that
- * wants to render it differently.
+ * One request for the index -- from the API by default, or wherever `--from`
+ * points -- then everything else happens here, so the command stays usable
+ * when the catalogue is long and works the same against a local file.
+ * `--json` is the same page as data, each entry carrying the URL its package
+ * downloads from, for scripts and for anything that renders it differently.
  */
 export const list = (options: ListOptions): Effect.Effect<Outcome, CommandError, Env> =>
   Effect.gen(function* () {
-    const source = options.from ?? indexUrl(options.repo, options.ref);
+    const source = options.from ?? indexUrl(DEFAULT_API);
     const catalogue = yield* parseIndex(yield* readIndexSource(source));
     const page = selectPage(catalogue, options);
-    const remote = options.from === undefined;
 
     if (options.json) {
-      const entries = page.entries.map((entry) => ({
-        ...entry,
-        ...(remote && { url: packageUrl(options.repo, options.ref, entry) }),
-      }));
+      const entries = page.entries.map((entry) => {
+        const url = packageUrl(source, entry);
+        return { ...entry, ...(url && { url }) };
+      });
       yield* out(JSON.stringify({ source, ...page, entries }, null, 2));
       return page.page <= page.pages ? ok : bad;
     }
@@ -675,8 +674,8 @@ export const list = (options: ListOptions): Effect.Effect<Outcome, CommandError,
             (options.search ? ` --search ${wanted}` : '')
         )
       );
-    if (remote)
-      yield* out(dim(`  packages: https://github.com/${options.repo}/tree/${options.ref}/${DIST_DIR}`));
+    const sample = page.entries[0] && packageUrl(source, page.entries[0]);
+    if (sample) yield* out(dim(`  download: ${sample.replace(page.entries[0]!.id, '<id>')}`));
     return ok;
   });
 
