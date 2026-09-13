@@ -123,9 +123,10 @@ test('init warns that scaffolded artwork is still placeholder', () => {
   const result = run('validate', dir);
   expect(result.code).toBe(0); // a warning, never a failure
   expect(result.stdout).toContain('placeholder');
-  // The scaffold fills every slot and declares no preview; both are said.
+  // The scaffold fills every slot and ships a placeholder preview cover.
   expect(result.stdout).toContain('10/10 decoration slots filled');
-  expect(result.stdout).toContain('no preview declared');
+  expect(result.stdout).not.toContain('no preview declared');
+  expect(existsSync(join(dir, 'assets', 'preview.png'))).toBe(true);
 });
 
 test('validate names the decoration slots a theme leaves unset', () => {
@@ -141,15 +142,9 @@ test('validate names the decoration slots a theme leaves unset', () => {
   expect(result.stdout).toContain('8/10 decoration slots filled');
   expect(result.stdout).toContain('unset: home.background, home.decoration');
 
-  // A declared preview image counts as used: the gallery draws it.
+  // The scaffold's preview image counts as used: the gallery draws it.
   const previewed = scratch();
   run('init', 'shown', '--dir', previewed);
-  const pf = join(previewed, 'theme.json');
-  const pm = JSON.parse(readFileSync(pf, 'utf8'));
-  pm.assets.cover = { path: 'assets/cover.png' };
-  writeFileSync(join(previewed, 'assets', 'cover.png'), readFileSync(join(previewed, 'assets', 'shell-light.png')));
-  pm.preview = 'cover';
-  writeFileSync(pf, JSON.stringify(pm));
   const shown = run('validate', previewed);
   expect(shown.code).toBe(0);
   expect(shown.stdout).not.toContain('never drawn');
@@ -387,14 +382,14 @@ test('inside a themes repository, init and pack default into src/ and dist/, and
   const outdated = runIn(repo, 'check');
   expect(outdated.code).toBe(1);
   expect(outdated.stdout).toContain('index.json does not match dist/');
-  expect(runIn(repo, 'index').stdout).toContain('wrote index.json (1 theme(s))');
+  expect(runIn(repo, 'index').stdout).toContain('wrote index.json (1 theme(s), 1 preview(s))');
   const catalogue = JSON.parse(readFileSync(join(repo, 'index.json'), 'utf8'));
   expect(catalogue.themes).toHaveLength(1);
   expect(catalogue.themes[0]).toMatchObject({
     id: 'grand-voyage',
     version: '1.0.0',
     package: 'dist/grand-voyage.muqun-theme',
-    assets: 15,
+    assets: 16,
   });
   expect(catalogue.themes[0].sha256).toMatch(/^[0-9a-f]{64}$/);
 
@@ -436,6 +431,18 @@ test('a pull request carries only sources: check --sources proves they pack, and
   expect(sources.stdout).toContain('packs to');
   expect(sources.stdout).not.toContain('index.json');
   expect(sources.stdout).toContain('check ok');
+
+  // --require-preview: the scaffold has one; a source that drops it is refused.
+  expect(runIn(repo, 'check', '--sources', '--require-preview').code).toBe(0);
+  const amberFile = join(repo, 'src', 'amber-dusk', 'theme.json');
+  const amber = JSON.parse(readFileSync(amberFile, 'utf8'));
+  delete amber.preview;
+  writeFileSync(amberFile, JSON.stringify(amber));
+  const noPreview = runIn(repo, 'check', '--sources', '--require-preview');
+  expect(noPreview.code).toBe(1);
+  expect(noPreview.stdout).toContain('no preview declared');
+  expect(runIn(repo, 'check', '--sources').code).toBe(0);
+  writeFileSync(amberFile, JSON.stringify({ ...amber, preview: 'preview' }));
 
   // A source that cannot pack fails it, with pack's own reason.
   const manifestFile = join(repo, 'src', 'blue-harbor', 'theme.json');
@@ -733,6 +740,13 @@ test('build publishes a declared preview beside the package, the index names it,
   mkdirSync(join(repo, 'dist'));
   expect(runIn(repo, 'init', 'voyage').code).toBe(0);
   expect(runIn(repo, 'init', 'plain').code).toBe(0);
+  // The scaffold ships a preview; `plain` gives its up so this test has one
+  // theme with a cover and one without.
+  const plainFile = join(repo, 'src', 'plain', 'theme.json');
+  const plainManifest = JSON.parse(readFileSync(plainFile, 'utf8'));
+  delete plainManifest.preview;
+  delete plainManifest.assets.preview;
+  writeFileSync(plainFile, JSON.stringify(plainManifest));
   const manifestFile = join(repo, 'src', 'voyage', 'theme.json');
   const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
   manifest.preview = 'shell-light';

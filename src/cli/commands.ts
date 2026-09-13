@@ -593,7 +593,8 @@ const syncPreviews = (
  */
 export const check = (
   rootArg = '.',
-  sourcesOnly = false
+  sourcesOnly = false,
+  requirePreview = false
 ): Effect.Effect<Outcome, CommandError, Env> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -648,6 +649,10 @@ export const check = (
       if (sourcesOnly) {
         // Prove it packs, and keep nothing: CI builds dist/ after the merge.
         if (!source) continue;
+        if (requirePreview && source.preview === undefined)
+          yield* problem(
+            `no preview declared -- add a 1024x640 cover (light left, dark right) to assets and name it in "preview"`
+          );
         const built = yield* buildPackage(path.join(repo.src, id), true, true).pipe(
           Effect.catchTag('CommandError', (error) =>
             Effect.gen(function* () {
@@ -782,9 +787,16 @@ export const index = (rootArg = '.'): Effect.Effect<Outcome, CommandError, Env> 
           `${rootArg} is not a themes repository: expected ${SRC_DIR}/ and ${DIST_DIR}/ directories.`
         )
       );
-    const catalogue = yield* buildIndex(repo);
+    // The catalogue is the index and the preview files together: what dist/
+    // holds decides both, so regenerating one without the other leaves check
+    // with something to complain about.
+    const { index: catalogue, previews } = yield* buildCatalogue(repo);
+    yield* syncPreviews(repo, previews);
     yield* writeText(path.join(repo.root, INDEX_FILE), renderIndex(catalogue));
-    yield* out(`${green('wrote')} ${INDEX_FILE} ${dim(`(${catalogue.themes.length} theme(s))`)}`);
+    yield* out(
+      `${green('wrote')} ${INDEX_FILE} ` +
+        dim(`(${catalogue.themes.length} theme(s)${previews.length ? `, ${previews.length} preview(s)` : ''})`)
+    );
     return ok;
   });
 

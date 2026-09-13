@@ -98,7 +98,7 @@ exists. `pack` works on it before you have changed anything.
 
 ```
 $ muqun-theme init grand-voyage
-created grand-voyage/theme.json (10 decoration slots, 14 placeholder images)
+created grand-voyage/theme.json (10 decoration slots, 16 placeholder images)
   Replace the flat tints in assets/ with real artwork, or delete slots you do not want.
   Next: muqun-theme contrast grand-voyage    then: muqun-theme pack grand-voyage
 ```
@@ -107,15 +107,21 @@ Without `--dir`, the theme gets a directory named after its id: `./<id>`, or
 `src/<id>` inside a themes repository. A default location is never allowed to
 overwrite a theme that is already there; `--dir` writes wherever you say.
 
-That writes `theme.json` plus fourteen PNGs in `assets/` — about 47 KB in total:
+That writes `theme.json` plus sixteen PNGs in `assets/` — about 50 KB in total:
 
 ```
 assets/shell-light.png      assets/shell-dark.png       assets/home-background.png
 assets/home-banner.png      assets/navigation.png       assets/composer.png
 assets/actions.png          assets/tabs.png             assets/cards.png
 assets/buttons.png          assets/empty-state.png      assets/icon-back.png
-assets/icon-send.png        assets/logo.png
+assets/icon-send.png        assets/icon-attach.png      assets/logo.png
+assets/preview.png
 ```
+
+`preview.png` is the gallery cover, 1024×640: the light look on the left half,
+the dark on the right. It is what the website and the app show before anyone
+downloads the pack, and the themes repository will not list a theme without
+one.
 
 The point is that the format is **discoverable by deletion**. Every section the
 schema supports is already there, so you find out that per-mode wallpaper, a
@@ -506,7 +512,10 @@ It fails, with exit code `1` and a line saying what to run, when:
 **`check --sources`** is the pull-request form: `dist/` and `index.json` are
 left to CI, so every source is validated and packed in memory to prove it can
 be, and nothing is kept. That is what a contributor runs before opening a PR,
-and exactly what CI runs on it.
+and exactly what CI runs on it. With `--require-preview`, a source that
+declares no `preview` image is an error: galleries show that image before
+anyone downloads the pack, and the themes repository will not list a theme
+without one.
 
 One command either way, so a repository needs no script of its own.
 
