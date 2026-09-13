@@ -444,6 +444,7 @@ A themes repository is a directory holding `src/` and `dist/`:
 ```
 src/<id>/theme.json         a theme as it is authored, beside its assets/
 dist/<id>.muqun-theme       the same theme, packed
+dist/previews/<id>.webp     its preview image, when the manifest declares one, generated
 index.json                  the catalogue of everything in dist/, generated
 ```
 
@@ -453,8 +454,8 @@ configured with it. Run inside such a directory:
 - `init <id>` writes `src/<id>/`, and refuses to overwrite one that exists.
 - `pack <id>` reads `src/<id>/` and writes `dist/<id>.muqun-theme`.
 - `validate <id>`, `contrast <id>` and `preview <id>` accept the bare id.
-- `index` rewrites `index.json` from `dist/`; `build` packs every source and
-  then does the same.
+- `index` rewrites `index.json` from `dist/`; `build` packs every source,
+  publishes each declared preview into `dist/previews/`, and then does the same.
 
 Both directories are required, so an ordinary project with a `src/` of its own
 is never mistaken for one.
@@ -464,9 +465,10 @@ is never mistaken for one.
 request carries only `src/<id>/`, and CI runs `check --sources` on it. After
 the merge, CI runs `build` and publishes `dist/` and `index.json` to the
 `release` branch, rebuilt whole every time so binaries never accumulate in
-history. `list` and the website read from that branch. Nobody commits a
-package or an index by hand, and two themes landing at once cannot conflict
-over `index.json`.
+history, and mirrors what changed to the R2 bucket behind
+`https://muqun.dev/api/themes/`. `list`, the website and the app read from
+there. Nobody commits a package, a preview or an index by hand, and two themes
+landing at once cannot conflict over `index.json`.
 
 ### `check`
 
@@ -482,6 +484,8 @@ valid Grand Voyage (grand-voyage 1.0.0)
   10/32 asset(s), 3.81 MiB of artwork
 index.json
   current (1 theme(s))
+dist/previews/
+  current (1 preview(s))
 
 check ok 1 theme(s)
 ```
@@ -493,7 +497,11 @@ It fails, with exit code `1` and a line saying what to run, when:
 - a source has no package, or a package has no source;
 - a package's `version` is not its source's, which is how "edited but not
   repacked" is caught;
-- `index.json` is missing or is not what `dist/` would generate.
+- `index.json` is missing or is not what `dist/` would generate;
+- a theme whose manifest declares a `preview` has no `dist/previews/<id>.<ext>`,
+  or has one that is not byte for byte the image inside its package, or
+  `dist/previews/` holds a file no packed theme accounts for. The fix is
+  `muqun-theme build`, which is what regenerates that directory.
 
 **`check --sources`** is the pull-request form: `dist/` and `index.json` are
 left to CI, so every source is validated and packed in memory to prove it can
@@ -514,8 +522,9 @@ src/grand-voyage
   …
   packed dist/grand-voyage.muqun-theme  3.93 MiB  10 asset(s)
   removed dist/old-theme.muqun-theme: it has no source
+  preview dist/previews/grand-voyage.webp  286.0 KiB
 
-built 1 theme(s) into dist/ and index.json
+built 1 theme(s) into dist/ and index.json, 1 preview(s)
 ```
 
 `dist/` is made to mirror `src/`: a package whose source is gone is removed.
@@ -523,6 +532,17 @@ The index is written last, from what was actually produced, so it cannot list
 anything that is not there, and a source that will not pack fails the build
 before the index is touched. This is what CI runs after a merge; a contributor
 never needs to.
+
+**A declared preview is published on its own.** A manifest's `preview` names
+one of the theme's assets as the picture a gallery shows for it. Rather than
+make the gallery download megabytes of artwork for one card, `build` copies
+that image out of the package into `dist/previews/<id>.<ext>` — the bytes as
+packed, so the optimised WebP rather than the PNG it was drawn as, under an
+extension (`webp`, `png` or `jpg`) chosen by inspecting the bytes rather than
+by trusting the file name. The directory mirrors the index exactly: a theme
+that stops declaring a preview, or whose source is gone, loses its file, and a
+file nothing accounts for is removed. Only `build` writes it; `pack` and
+`index` do not, and `check` reports a `dist/previews/` that has fallen behind.
 
 **It is incremental.** Each index entry carries a `sourceDigest`, a hash of
 the source it was packed from: `theme.json` and every declared asset. With the
@@ -560,6 +580,7 @@ sorted by id, with the metadata a reader wants before downloading anything.
       "author": "…", "license": "…", "description": "…", "tags": ["…"],  // when the manifest has them
       "package": "dist/grand-voyage.muqun-theme",
       "bytes": 4123456, "sha256": "…", "assets": 10,
+      "preview": "dist/previews/grand-voyage.webp",  // when the manifest declares a preview
       "sourceDigest": "…"       // what build compares to skip an unchanged source
     }
   ]
@@ -588,7 +609,9 @@ grand-voyage  Grand Voyage  v1.0.0  by …  3.93 MiB
 
 `--search` matches id, name, author, description and tags, case-insensitively.
 `--page` and `--per-page` (default 20) page the result. `--json` prints the
-same page as data, each entry with the `url` its package downloads from.
+same page as data, each entry with the `url` its package downloads from and,
+when it publishes a preview, the `previewUrl` of that image — both derived
+from where the index was read, so a local file yields neither.
 `--from` reads an `index.json` from another URL or a local file instead.
 
 ### `skill`

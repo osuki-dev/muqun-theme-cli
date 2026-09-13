@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { sha256 } from '../digest.js';
+import { unpackTheme } from '../package.js';
 import { parseThemeManifest } from '../schema.js';
 
 /**
@@ -724,4 +725,113 @@ test('list searches and pages a catalogue, and --json is the same page as data',
   const refused = runIn(dir, 'list', '--from', 'index.json');
   expect(refused.code).toBe(1);
   expect(refused.stderr).toContain('Not a themes index');
+}, SUBPROCESS_HEAVY);
+
+test('build publishes a declared preview beside the package, the index names it, and check holds dist/previews/ to it', async () => {
+  const repo = scratch();
+  mkdirSync(join(repo, 'src'));
+  mkdirSync(join(repo, 'dist'));
+  expect(runIn(repo, 'init', 'voyage').code).toBe(0);
+  expect(runIn(repo, 'init', 'plain').code).toBe(0);
+  const manifestFile = join(repo, 'src', 'voyage', 'theme.json');
+  const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+  manifest.preview = 'shell-light';
+  writeFileSync(manifestFile, JSON.stringify(manifest));
+
+  // The file is the asset as packed -- the WebP pack made of the PNG -- and is
+  // named by what the bytes are, not by what the source file was called.
+  const built = runIn(repo, 'build');
+  expect(built.code).toBe(0);
+  expect(built.stdout).toContain('preview dist/previews/voyage.webp');
+  expect(built.stdout).toContain('1 preview(s)');
+  const previewFile = join(repo, 'dist', 'previews', 'voyage.webp');
+  expect(existsSync(previewFile)).toBe(true);
+  const packed = unpackTheme(readFileSync(join(repo, 'dist', 'voyage.muqun-theme')));
+  expect(sha256(readFileSync(previewFile))).toBe(sha256(packed.assets['shell-light']));
+  expect(readFileSync(previewFile).subarray(8, 12).toString()).toBe('WEBP');
+  expect(existsSync(join(repo, 'dist', 'previews', 'plain.webp'))).toBe(false);
+
+  const [plain, voyage] = JSON.parse(readFileSync(join(repo, 'index.json'), 'utf8')).themes;
+  expect(voyage).toMatchObject({ id: 'voyage', preview: 'dist/previews/voyage.webp' });
+  expect(plain.id).toBe('plain');
+  expect(plain).not.toHaveProperty('preview');
+
+  const agreed = runIn(repo, 'check');
+  expect(agreed.code).toBe(0);
+  expect(agreed.stdout).toContain('dist/previews/');
+  expect(agreed.stdout).toContain('current (1 preview(s))');
+
+  // Read from a local file the entry carries the path; read from a URL it
+  // carries the URL, derived the way the package URL is.
+  const local = JSON.parse(runIn(repo, 'list', '--from', 'index.json', '--json').stdout);
+  expect(local.entries[1].preview).toBe('dist/previews/voyage.webp');
+  expect(local.entries[1]).not.toHaveProperty('previewUrl');
+  const server = Bun.serve({
+    hostname: '127.0.0.1',
+    port: 0,
+    fetch: (request) => new Response(Bun.file(join(repo, new URL(request.url).pathname))),
+  });
+  try {
+    const base = `http://127.0.0.1:${server.port}/`;
+    // Spawned asynchronously: the server answering is this same event loop.
+    const proc = Bun.spawn(['bun', CLI, 'list', '--from', `${base}index.json`, '--json'], {
+      cwd: repo,
+      env: { ...process.env, NO_COLOR: '1' },
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    const stdout = await new Response(proc.stdout).text();
+    expect(await proc.exited).toBe(0);
+    const entries = JSON.parse(stdout).entries;
+    expect(entries[1]).toMatchObject({
+      id: 'voyage',
+      url: `${base}dist/voyage.muqun-theme`,
+      previewUrl: `${base}dist/previews/voyage.webp`,
+    });
+    expect(entries[0]).not.toHaveProperty('previewUrl');
+    // The URL fetches the file the index named.
+    const image = await fetch(entries[1].previewUrl);
+    expect(image.status).toBe(200);
+    expect(sha256(new Uint8Array(await image.arrayBuffer()))).toBe(sha256(packed.assets['shell-light']));
+  } finally {
+    await server.stop(true);
+  }
+
+  // A missing preview, a stray one, and one that is not the packaged bytes are
+  // each an error naming the fix.
+  rmSync(previewFile);
+  writeFileSync(join(repo, 'dist', 'previews', 'stray.png'), Buffer.from('not a theme'));
+  const stale = runIn(repo, 'check');
+  expect(stale.code).toBe(1);
+  expect(stale.stdout).toContain('dist/previews/voyage.webp is missing -- run: muqun-theme build');
+  expect(stale.stdout).toContain('dist/previews/stray.png belongs to no packed theme with a preview -- run: muqun-theme build');
+  writeFileSync(previewFile, Buffer.from('not the image'));
+  const tampered = runIn(repo, 'check');
+  expect(tampered.code).toBe(1);
+  expect(tampered.stdout).toContain('dist/previews/voyage.webp is not the preview inside dist/voyage.muqun-theme');
+
+  // build heals both without repacking anything.
+  const healed = runIn(repo, 'build');
+  expect(healed.code).toBe(0);
+  expect(healed.stdout).toContain('kept dist/voyage.muqun-theme');
+  expect(healed.stdout).toContain('preview dist/previews/voyage.webp');
+  expect(healed.stdout).toContain('removed dist/previews/stray.png');
+  expect(existsSync(join(repo, 'dist', 'previews', 'stray.png'))).toBe(false);
+  expect(sha256(readFileSync(previewFile))).toBe(sha256(packed.assets['shell-light']));
+  expect(runIn(repo, 'check').code).toBe(0);
+
+  // A theme that stops declaring a preview takes its file and its entry with it.
+  delete manifest.preview;
+  writeFileSync(manifestFile, JSON.stringify(manifest));
+  const dropped = runIn(repo, 'build');
+  expect(dropped.code).toBe(0);
+  expect(dropped.stdout).toContain('removed dist/previews/voyage.webp');
+  expect(dropped.stdout).not.toContain('preview(s)');
+  expect(existsSync(previewFile)).toBe(false);
+  const after = JSON.parse(readFileSync(join(repo, 'index.json'), 'utf8')).themes;
+  expect(after[1].id).toBe('voyage');
+  expect(after[1]).not.toHaveProperty('preview');
+  const clean = runIn(repo, 'check');
+  expect(clean.code).toBe(0);
+  expect(clean.stdout).not.toContain('dist/previews/');
 }, SUBPROCESS_HEAVY);
