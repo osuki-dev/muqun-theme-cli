@@ -24,9 +24,12 @@ mkdir -p "$WORK/repo/src" "$WORK/repo/dist"
 cd "$WORK/repo"
 bun "$CLI" skill --out skills/muqun-theme/SKILL.md
 bun "$CLI" init grand-voyage
+bun "$CLI" check --sources
 bun "$CLI" pack grand-voyage
 bun "$CLI" validate grand-voyage
 bun "$CLI" index
+bun "$CLI" check
+bun "$CLI" build
 bun "$CLI" check
 bun "$CLI" list --from index.json
 bun "$CLI" list --from index.json --search voyage --json >/dev/null

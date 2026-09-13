@@ -480,10 +480,10 @@ alone never fail a command. Report only what the tool actually printed.
 ### In a themes repository
 
 A themes repository is a directory holding `src/` and `dist/`. Inside one,
-`muqun-theme init <id>` writes `src/<id>/`, `muqun-theme pack <id>` writes
-`dist/<id>.muqun-theme`, and `validate` and `contrast` accept the bare id. Do
-not edit `dist/` by hand; pack again. After packing, run `muqun-theme index`
-to regenerate `index.json`, then finish with `muqun-theme check`, which
-validates every source and package and fails when one is missing, when a
-package's `version` is behind its source, or when `index.json` is stale.
-Report its result as printed.
+`muqun-theme init <id>` writes `src/<id>/`, and `validate` and `contrast`
+accept the bare id. Your deliverable is the source directory only: `dist/` and
+`index.json` are built by CI after the merge, so do not commit a package or an
+index. Finish with `muqun-theme check --sources`, which validates every source
+and proves it packs; report its result as printed. (`muqun-theme pack <id>`
+still works for a local look at the package, and `muqun-theme build` is what
+CI runs.)

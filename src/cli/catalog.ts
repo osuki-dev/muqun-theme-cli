@@ -22,7 +22,13 @@ import { CommandError, fail } from './theme-source.js';
 export const INDEX_FILE = 'index.json';
 export const INDEX_FORMAT = 'muqun-themes-index';
 export const DEFAULT_REPO = 'osuki-dev/muqun-themes';
-export const DEFAULT_REF = 'main';
+/**
+ * The built artefacts live on their own branch. `main` holds sources and is
+ * what people review; CI runs `build` after a merge and publishes `dist/` and
+ * `index.json` to `release`, rebuilt whole each time so binaries never pile up
+ * in history.
+ */
+export const DEFAULT_REF = 'release';
 
 export type IndexEntry = {
   readonly id: string;
