@@ -191,10 +191,14 @@ const check = Command.make('check', {
     ),
     Flag.withDefault(false)
   ),
+  requirePreview: Flag.Boolean('require-preview').pipe(
+    Flag.withDescription('with --sources: a source without a "preview" image is an error'),
+    Flag.withDefault(false)
+  ),
 }).pipe(
   Command.withDescription('every theme in a themes repository, and that src/ and dist/ agree'),
-  Command.withHandler(({ root, sources }) =>
-    runOutcome(commands.check(Option.getOrUndefined(root), sources))
+  Command.withHandler(({ root, sources, requirePreview }) =>
+    runOutcome(commands.check(Option.getOrUndefined(root), sources, requirePreview))
   )
 );
 

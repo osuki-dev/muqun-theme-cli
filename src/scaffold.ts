@@ -58,6 +58,9 @@ const PLACEHOLDERS: readonly Placeholder[] = [
   { id: 'icon-send', file: 'icon-send.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-attach', file: 'icon-attach.png', width: 96, height: 96, tint: light('text') },
   { id: 'logo', file: 'logo.png', width: 256, height: 256, tint: light('primary') },
+  // The gallery cover: light look on the left half, dark on the right, 16:10.
+  // A flat tint here, like the rest, so the author is told it is unreplaced.
+  { id: 'preview', file: 'preview.png', width: 1024, height: 640, tint: light('surface') },
 ];
 
 export type ThemeScaffold = { manifest: ThemeManifest; assets: Record<string, Uint8Array> };
@@ -92,6 +95,8 @@ export function createThemeScaffold(slug?: string): ThemeScaffold {
     author: 'Your name',
     license: 'CC-BY-4.0',
     assets: declared,
+    // What galleries show before anyone downloads the pack.
+    preview: 'preview',
 
     // Shared across both modes. A slot omitted here inherits nothing and simply
     // draws no artwork, so every slot the schema has is present and wired.

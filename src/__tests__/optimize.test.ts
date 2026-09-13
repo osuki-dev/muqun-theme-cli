@@ -27,6 +27,8 @@ function themeWith(assets: Record<string, Uint8Array>, sha = false): ThemeManife
       variantDecorations: undefined,
       icons: undefined,
       homeIdentity: undefined,
+      // The scaffold's preview names an asset these tests do not carry.
+      preview: undefined,
     })
   );
 }
@@ -100,6 +102,7 @@ test('artwork that is already WebP is left exactly alone', async () => {
       variantDecorations: undefined,
       icons: undefined,
       homeIdentity: undefined,
+      preview: undefined,
     })
   );
 
