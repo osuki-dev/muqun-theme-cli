@@ -434,8 +434,6 @@ Every theme in the repository, and whether `src/` and `dist/` agree:
 
 ```
 $ muqun-theme check
-skills/muqun-theme/SKILL.md
-  matches this CLI (skill v1.2.0)
 src/grand-voyage
 valid Grand Voyage (grand-voyage 1.0.0)
   10/32 asset(s), 3.81 MiB of artwork
@@ -456,10 +454,6 @@ It fails, with exit code `1` and a line saying what to run, when:
 - a package's `version` is not its source's, which is how "edited but not
   repacked" is caught;
 - `index.json` is missing or is not what `dist/` would generate.
-
-It warns, without failing, when the repository's vendored copy of the agent
-skill differs from the one this CLI carries. A stale skill misinforms an agent;
-it breaks no theme.
 
 **`check --sources`** is the pull-request form: `dist/` and `index.json` are
 left to CI, so every source is validated and packed in memory to prove it can
@@ -562,16 +556,19 @@ same page as data, each entry with the `url` its package downloads from.
 The agent authoring skill, printed or written:
 
 ```sh
-muqun-theme skill                                    # to stdout
-muqun-theme skill --out skills/muqun-theme/SKILL.md  # into the repository
+muqun-theme skill                  # to stdout
+muqun-theme skill --out SKILL.md   # to a file
 ```
 
-The skill is what makes an agent produce an installable theme rather than a
-plausible mockup, and a themes repository keeps a copy where its agents look:
-`skills/muqun-theme/SKILL.md`, pointed at from `AGENTS.md`, linked from
-`.claude/skills/`. This is how that copy is made and refreshed, and `check`
-says when it is stale. The file is carried inside the executable, so it is the
-same bytes whichever way the tool was installed.
+The usual way to install it is from this repository, into whatever agent you
+use:
+
+```sh
+bunx skills add osuki-dev/muqun-theme-cli
+```
+
+`muqun-theme skill` is the same file, carried inside the executable, for when
+that is more convenient.
 
 ## The `.muqun-theme` format
 
@@ -819,12 +816,12 @@ authoring skill, so that drift would fail a test.
 asked to make a Muqun theme. It carries the workflow, the resource and surface
 rules, the boundaries, the full JSON Schema and a complete starter manifest — so
 an agent can produce an installable pack without reading the app's source. It
-ships in the npm tarball, and is carried inside the executable as well, so
-`muqun-theme skill` prints it wherever the tool was installed from:
+is installed into an agent from this repository, and is carried inside the
+executable as well:
 
-```
-node_modules/@osuki-dev/muqun-theme/skills/muqun-theme/SKILL.md
-muqun-theme skill --out skills/muqun-theme/SKILL.md
+```sh
+bunx skills add osuki-dev/muqun-theme-cli
+muqun-theme skill --out SKILL.md
 ```
 
 **It is generated upstream.** The file is produced in the Muqun app repository
