@@ -1,5 +1,22 @@
 # @osuki-dev/muqun-theme
 
+## 1.9.0
+
+### Minor Changes
+
+- [#23](https://github.com/osuki-dev/muqun-theme-cli/pull/23) [`fd9f4f5`](https://github.com/osuki-dev/muqun-theme-cli/commit/fd9f4f56d12c71e7290520354bd0828d18c155b3) Thanks [@ryuhzk](https://github.com/ryuhzk)! - `home.hero` is a decoration slot this build knows, and `homeIdentity.hero` its
+  `default`/`hidden` switch — parity with the Muqun app, which now draws the
+  theme's own illustration between Home's header row and the server list. The
+  slot is validated like `emptyState.illustration`: an image reference with
+  `fit`, `opacity`, `focalPoint` and per-mode and per-width overrides, sized
+  against the same 1024px budget.
+
+  `check` and `validate` stop reporting `home.hero` as a slot they have never
+  heard of, and `init` now scaffolds a seventeenth placeholder, `home-hero.png`,
+  wired to the slot with the switch written out beside the Home name and logo.
+  No `schemaVersion` bump: the field is additive, and a pack that declares it
+  still installs on an app that has not heard of it.
+
 ## 1.8.1
 
 ### Patch Changes
