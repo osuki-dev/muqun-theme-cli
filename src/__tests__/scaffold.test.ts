@@ -72,6 +72,13 @@ test('every decoration slot the schema has is wired to a declared asset', () => 
   }
   // And both known glyphs are replaced, so an author sees the mechanism.
   for (const icon of THEME_ICONS) expect(manifest.icons?.[icon]).toBeDefined();
+
+  // The Home hero, spelled out: a square-ish contained drawing in the slot and
+  // its switch in `homeIdentity`, so both halves of the feature are in the file
+  // an author edits rather than only in the schema they would have to read.
+  expect(manifest.decoration?.['home.hero']).toEqual({ asset: 'home-hero', fit: 'contain' });
+  expect(manifest.homeIdentity?.hero).toEqual({ mode: 'default' });
+  expect(manifest.assets?.['home-hero']).toEqual({ path: 'assets/home-hero.png' });
 });
 
 test('a fresh scaffold has no errors and no size warnings, only placeholder notices', () => {

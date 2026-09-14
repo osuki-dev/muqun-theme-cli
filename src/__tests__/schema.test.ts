@@ -6,6 +6,7 @@ import {
   themeColorsSchema,
   themeJsonSchema,
   THEME_LIMITS,
+  THEME_SLOTS,
 } from '../schema.js';
 
 import { verifyManifest } from '../verify.js';
@@ -148,6 +149,88 @@ describe('theme v1 contract', () => {
         })
       ).toThrow('Unknown asset');
     }
+  });
+
+  test('the Home hero is a slot this build draws, with the same controls every slot has', () => {
+    // Added to the app after v1 opened, and mirrored here because a CLI that
+    // warned "not a slot this build knows" about a slot the app now draws
+    // would be telling authors to remove working artwork.
+    expect(THEME_SLOTS).toContain('home.hero');
+
+    const theme = parse({
+      ...createThemeStarter(),
+      assets: { hero: { path: 'assets/hero.png' }, wide: { path: 'assets/wide.png' } },
+      // Every control `emptyState.illustration` has, because `home.hero` is
+      // validated as an ordinary image slot and nothing about it is special.
+      decoration: {
+        'home.hero': {
+          asset: 'hero',
+          fit: 'contain',
+          opacity: 0.9,
+          focalPoint: { x: 0.5, y: 0.4 },
+          compact: { asset: 'hero' },
+          regular: { asset: 'wide', fit: 'contain' },
+        },
+      },
+      variantDecorations: { dark: { 'home.hero': { asset: 'wide' } } },
+      homeIdentity: { hero: { mode: 'hidden' } },
+    });
+    expect(theme.decoration?.['home.hero']?.fit).toBe('contain');
+    expect(theme.homeIdentity?.hero).toEqual({ mode: 'hidden' });
+
+    // `null` disables it per mode, the way it does for every other slot.
+    expect(() =>
+      parse({ ...createThemeStarter(), variantDecorations: { light: { 'home.hero': null } } })
+    ).not.toThrow();
+
+    // And the slot is known, so declaring it draws no "unrecognised slot" warning.
+    const raw = {
+      ...createThemeStarter(),
+      assets: { hero: { path: 'assets/hero.png' } },
+      decoration: { 'home.hero': { asset: 'hero', fit: 'contain' } },
+      homeIdentity: { hero: { mode: 'default' } },
+    };
+    expect(verifyManifest(parseThemeManifest(JSON.stringify(raw)), raw)).toEqual([]);
+  });
+
+  test('the Home hero refuses what every other slot refuses', () => {
+    const base = {
+      ...createThemeStarter(),
+      assets: { hero: { path: 'assets/hero.png' } },
+    };
+    // An asset nothing declares, in the slot and in a per-width override.
+    expect(() => parse({ ...base, decoration: { 'home.hero': { asset: 'missing' } } })).toThrow(
+      'Unknown asset'
+    );
+    expect(() =>
+      parse({ ...base, decoration: { 'home.hero': { asset: 'hero', compact: { asset: 'missing' } } } })
+    ).toThrow('Unknown asset');
+    // A fit outside the three the renderer has, and a key the slot does not own.
+    expect(() =>
+      parse({ ...base, decoration: { 'home.hero': { asset: 'hero', fit: 'stretch' } } })
+    ).toThrow();
+    expect(() =>
+      parse({ ...base, decoration: { 'home.hero': { asset: 'hero', height: 180 } } })
+    ).toThrow();
+  });
+
+  test('homeIdentity.hero is a default/hidden switch and nothing else', () => {
+    const hero = (value: unknown) =>
+      parse({ ...createThemeStarter(), homeIdentity: { hero: value } });
+    for (const mode of ['default', 'hidden'] as const)
+      expect(hero({ mode }).homeIdentity?.hero).toEqual({ mode });
+
+    // Omitting it is legal, and means the same as `default`.
+    expect(parse({ ...createThemeStarter(), homeIdentity: {} }).homeIdentity?.hero).toBeUndefined();
+
+    // No `custom` member: the asset, its fit and its overrides all belong to
+    // the slot, so there is nothing here to customise.
+    expect(() => hero({ mode: 'custom', asset: 'logo' })).toThrow();
+    expect(() => hero({ mode: 'shown' })).toThrow();
+    expect(() => hero({ mode: 'default', extra: 1 })).toThrow();
+    expect(() => hero(true)).toThrow();
+    // `homeIdentity` stays strict, so a near-miss spelling is a mistake here.
+    expect(() => parse({ ...createThemeStarter(), homeIdentity: { heroe: { mode: 'default' } } })).toThrow();
   });
 
   test('bounds resource count', () => {

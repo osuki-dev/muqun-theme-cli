@@ -20,8 +20,13 @@ import { createThemeStarter } from '../starter.js';
 const SKILL = readFileSync(new URL('../../skills/muqun-theme/SKILL.md', import.meta.url), 'utf8');
 
 function section(heading: string, fence: string): string {
+  // The upstream generator may put a formatter directive between the heading
+  // and the fence -- `<!-- prettier-ignore -->` sits above the JSON Schema, so
+  // a very long line survives a reformat. It is part of the verbatim copy, so
+  // the reader here skips HTML comments rather than the vendoring stripping
+  // them and making the copy a not-quite-copy.
   const match = SKILL.match(
-    new RegExp(`## ${heading}\\n\\n\`\`\`${fence}\\n([\\s\\S]*?)\\n\`\`\``)
+    new RegExp(`## ${heading}\\n\\n(?:<!--[\\s\\S]*?-->\\n)*\`\`\`${fence}\\n([\\s\\S]*?)\\n\`\`\``)
   );
   if (!match) throw new Error(`SKILL.md has no ${heading} section in a ${fence} fence`);
   return match[1];
