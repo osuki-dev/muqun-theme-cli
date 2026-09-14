@@ -98,7 +98,7 @@ exists. `pack` works on it before you have changed anything.
 
 ```
 $ muqun-theme init grand-voyage
-created grand-voyage/theme.json (10 decoration slots, 16 placeholder images)
+created grand-voyage/theme.json (11 decoration slots, 17 placeholder images)
   Replace the flat tints in assets/ with real artwork, or delete slots you do not want.
   Next: muqun-theme contrast grand-voyage    then: muqun-theme pack grand-voyage
 ```
@@ -107,15 +107,15 @@ Without `--dir`, the theme gets a directory named after its id: `./<id>`, or
 `src/<id>` inside a themes repository. A default location is never allowed to
 overwrite a theme that is already there; `--dir` writes wherever you say.
 
-That writes `theme.json` plus sixteen PNGs in `assets/` — about 50 KB in total:
+That writes `theme.json` plus seventeen PNGs in `assets/` — about 52 KB in total:
 
 ```
 assets/shell-light.png      assets/shell-dark.png       assets/home-background.png
 assets/home-banner.png      assets/navigation.png       assets/composer.png
 assets/actions.png          assets/tabs.png             assets/cards.png
-assets/buttons.png          assets/empty-state.png      assets/icon-back.png
-assets/icon-send.png        assets/icon-attach.png      assets/logo.png
-assets/preview.png
+assets/buttons.png          assets/empty-state.png      assets/home-hero.png
+assets/icon-back.png        assets/icon-send.png        assets/icon-attach.png
+assets/logo.png             assets/preview.png
 ```
 
 `preview.png` is the gallery cover, 1024×640: the light look on the left half,
@@ -141,9 +141,9 @@ still in place:
 ```
 $ muqun-theme validate ./grand-voyage
 valid grand-voyage (grand-voyage 1.0.0)
-  14/32 asset(s), 46.6 KiB of artwork
-  warning 14x still the placeholder written by `muqun-theme init`
-          shell-light, shell-dark, home-background, home-banner, navigation, composer, actions, tabs, +6 more
+  17/32 asset(s), 52.3 KiB of artwork
+  warning 17x still the placeholder written by `muqun-theme init`
+          shell-light, shell-dark, home-background, home-banner, navigation, composer, actions, tabs, +9 more
 ```
 
 Replace one and the count goes down. It is a warning rather than an error,
@@ -749,7 +749,7 @@ Artwork is placed by referencing an asset from a **decoration slot**:
 }
 ```
 
-The ten slots:
+The eleven slots:
 
 | Slot | What it decorates |
 | ---- | ----------------- |
@@ -763,6 +763,7 @@ The ten slots:
 | `cards.decoration` | Cards. |
 | `buttons.primary.background` | Primary buttons. |
 | `emptyState.illustration` | Empty states. Use a square, `contain`-fit image. |
+| `home.hero` | Home's own illustration, between the header row and the server list. Square-ish, `contain`-fit, at most 1024px; content rather than wallpaper, so no words in it. Hidden while the empty state is showing. |
 
 Each slot takes `asset`, plus optional `fit` (`cover`, `contain`, `tile`),
 `opacity` (0..1), and `focalPoint` (`{x, y}`, each 0..1). It may also carry
@@ -800,13 +801,21 @@ to `solid` where unsupported.
 ```jsonc
 "homeIdentity": {
   "name": { "mode": "custom", "text": "Grand Voyage" },  // or default | hidden
-  "logo": { "mode": "custom", "asset": "crest" }         // or default | hidden
+  "logo": { "mode": "custom", "asset": "crest" },        // or default | hidden
+  "hero": { "mode": "hidden" }                           // default | hidden
 }
 ```
 
 A pack that says nothing here gets nothing: once a theme is applied, Home is the
 theme's, and the app does not print its own name over your illustration. Ask for
 it back with `"mode": "default"`. This never renames the launcher icon.
+
+`hero` is the exception to that shape, and the only member with no `custom` mode:
+the picture is the `home.hero` slot, and everything customisable about it — the
+asset, its `fit`, its `opacity`, its per-mode and per-width overrides — belongs
+to the slot. This is only the switch. Saying nothing means `default`, which draws
+the hero whenever `home.hero` is declared, so an author turns it on by drawing
+one; `hidden` ships the artwork with the switch off, for a reader to turn on.
 
 ### Limits
 

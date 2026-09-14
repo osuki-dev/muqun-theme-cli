@@ -54,6 +54,7 @@ const PLACEHOLDERS: readonly Placeholder[] = [
   { id: 'cards', file: 'cards.png', width: 512, height: 512, tint: light('border') },
   { id: 'buttons', file: 'buttons.png', width: 512, height: 160, tint: light('primary') },
   { id: 'empty-state', file: 'empty-state.png', width: 512, height: 512, tint: light('info') },
+  { id: 'home-hero', file: 'home-hero.png', width: 512, height: 512, tint: light('primary') },
   { id: 'icon-back', file: 'icon-back.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-send', file: 'icon-send.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-attach', file: 'icon-attach.png', width: 96, height: 96, tint: light('text') },
@@ -110,6 +111,9 @@ export function createThemeScaffold(slug?: string): ThemeScaffold {
       'cards.decoration': { asset: 'cards', fit: 'cover' as const, opacity: 0.4 },
       'buttons.primary.background': { asset: 'buttons', fit: 'cover' as const },
       'emptyState.illustration': { asset: 'empty-state', fit: 'contain' as const },
+      // Home's own illustration, between the header row and the server list.
+      // Square-ish and contained, like the empty state: it is content, not wallpaper.
+      'home.hero': { asset: 'home-hero', fit: 'contain' as const },
     },
 
     // The per-mode override, demonstrated on the one slot where a single image
@@ -137,6 +141,10 @@ export function createThemeScaffold(slug?: string): ThemeScaffold {
     homeIdentity: {
       name: { mode: 'custom' as const, text: name },
       logo: { mode: 'custom' as const, asset: 'logo' },
+      // The hero's default switch, spelled out rather than left implicit: an
+      // omitted `hero` already means `default`, but writing it is what makes
+      // the field -- and `hidden`, the other half of it -- discoverable here.
+      hero: { mode: 'default' as const },
     },
   };
 

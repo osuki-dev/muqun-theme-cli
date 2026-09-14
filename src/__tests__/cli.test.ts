@@ -124,7 +124,7 @@ test('init warns that scaffolded artwork is still placeholder', () => {
   expect(result.code).toBe(0); // a warning, never a failure
   expect(result.stdout).toContain('placeholder');
   // The scaffold fills every slot and ships a placeholder preview cover.
-  expect(result.stdout).toContain('10/10 decoration slots filled');
+  expect(result.stdout).toContain('11/11 decoration slots filled');
   expect(result.stdout).not.toContain('no preview declared');
   expect(existsSync(join(dir, 'assets', 'preview.png'))).toBe(true);
 });
@@ -139,7 +139,7 @@ test('validate names the decoration slots a theme leaves unset', () => {
   writeFileSync(file, JSON.stringify(manifest));
   const result = run('validate', dir);
   expect(result.code).toBe(0);
-  expect(result.stdout).toContain('8/10 decoration slots filled');
+  expect(result.stdout).toContain('9/11 decoration slots filled');
   expect(result.stdout).toContain('unset: home.background, home.decoration');
 
   // The scaffold's preview image counts as used: the gallery draws it.
@@ -155,7 +155,7 @@ test('validate names the decoration slots a theme leaves unset', () => {
   run('init', '--colors-only', '--dir', palette);
   const plain = run('validate', palette);
   expect(plain.code).toBe(0);
-  expect(plain.stdout).toContain('0/10 decoration slots filled');
+  expect(plain.stdout).toContain('0/11 decoration slots filled');
   expect(plain.stdout).not.toContain('warning');
 });
 
@@ -389,7 +389,7 @@ test('inside a themes repository, init and pack default into src/ and dist/, and
     id: 'grand-voyage',
     version: '1.0.0',
     package: 'dist/grand-voyage.muqun-theme',
-    assets: 16,
+    assets: 17,
   });
   expect(catalogue.themes[0].sha256).toMatch(/^[0-9a-f]{64}$/);
 
@@ -848,4 +848,42 @@ test('build publishes a declared preview beside the package, the index names it,
   const clean = runIn(repo, 'check');
   expect(clean.code).toBe(0);
   expect(clean.stdout).not.toContain('dist/previews/');
+}, SUBPROCESS_HEAVY);
+
+test('check accepts a theme that declares the Home hero, and still names a misspelling', () => {
+  // The slot the app added after v1 opened. The interesting case is the whole
+  // path an author actually takes -- a source in a repository, checked before
+  // it is packed -- because that is where a CLI lagging the app would tell them
+  // to delete artwork the app draws.
+  const repo = scratch();
+  mkdirSync(join(repo, 'src'));
+  mkdirSync(join(repo, 'dist'));
+  expect(runIn(repo, 'init', 'hearth').code).toBe(0);
+
+  const manifestFile = join(repo, 'src', 'hearth', 'theme.json');
+  const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
+  // Hand-written rather than the scaffold's own entry: the slot carrying a
+  // per-mode override and the switch turned off, which is the shape the app
+  // documents for shipping the artwork with the hero hidden by default.
+  manifest.decoration['home.hero'] = { asset: 'home-hero', fit: 'contain', opacity: 0.85 };
+  manifest.variantDecorations.dark['home.hero'] = { asset: 'home-hero', fit: 'contain' };
+  manifest.homeIdentity.hero = { mode: 'hidden' };
+  writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
+
+  const sources = runIn(repo, 'check', '--sources');
+  expect(sources.code).toBe(0);
+  expect(sources.stdout).toContain('check ok');
+  expect(sources.stdout).not.toContain('home.hero');
+  expect(sources.stdout).not.toContain('not a slot this build knows');
+  expect(runIn(repo, 'validate', 'hearth').stdout).toContain('11/11 decoration slots filled');
+
+  // And the tolerance is still there for a name this build has not heard of: a
+  // typo is a warning an author can act on, never a refusal.
+  manifest.decoration['home.heroe'] = { asset: 'home-hero', fit: 'contain' };
+  writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
+  const misspelt = runIn(repo, 'check', '--sources');
+  expect(misspelt.code).toBe(0);
+  expect(misspelt.stdout).toContain('decoration.home.heroe');
+  expect(misspelt.stdout).toContain('not a slot this build knows');
+  expect(misspelt.stdout).toContain('home.hero');
 }, SUBPROCESS_HEAVY);
