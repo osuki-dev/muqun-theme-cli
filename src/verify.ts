@@ -77,12 +77,12 @@ const CHROME_EDGE = 1024;
 /**
  * The slots that genuinely cover a screen.
  *
- * `home.background` belongs here as much as `shell.background` does: it does not
+ * `home.wallpaper` belongs here as much as `shell.wallpaper` does: it does not
  * sit beside the wallpaper, it replaces it on Home. Budgeting it as chrome
  * warned about correctly-sized wallpaper, which is the kind of false alarm that
  * teaches an author to stop reading warnings.
  */
-const FULL_SCREEN_SLOTS: ReadonlySet<string> = new Set(['shell.background', 'home.background']);
+const FULL_SCREEN_SLOTS: ReadonlySet<string> = new Set(['shell.wallpaper', 'home.wallpaper']);
 
 /**
  * Everything that can be checked about a package's images without decoding one.

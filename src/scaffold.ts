@@ -43,16 +43,16 @@ const dark = (key: keyof ThemeManifest['variants']['dark']['colors']) => (theme:
  * strip; Home and startup share a contained foreground placeholder.
  */
 const PLACEHOLDERS: readonly Placeholder[] = [
-  { id: 'shell-light', file: 'shell-light.png', width: 1080, height: 1920, tint: light('surfaceRaised') },
-  { id: 'shell-dark', file: 'shell-dark.png', width: 1080, height: 1920, tint: dark('surfaceRaised') },
-  { id: 'home-background', file: 'home-background.png', width: 1080, height: 1920, tint: light('surface') },
+  { id: 'wallpaper-light', file: 'wallpaper-light.png', width: 1080, height: 1920, tint: light('surfaceRaised') },
+  { id: 'wallpaper-dark', file: 'wallpaper-dark.png', width: 1080, height: 1920, tint: dark('surfaceRaised') },
+  { id: 'home-wallpaper', file: 'home-wallpaper.png', width: 1080, height: 1920, tint: light('surface') },
   { id: 'navigation', file: 'navigation.png', width: 1024, height: 256, tint: light('surfaceRaised') },
   { id: 'composer', file: 'composer.png', width: 1024, height: 256, tint: light('surfaceRaised') },
   { id: 'actions', file: 'actions.png', width: 1024, height: 256, tint: light('surfaceRaised') },
   { id: 'tabs', file: 'tabs.png', width: 1024, height: 192, tint: light('surfaceRaised') },
   { id: 'cards', file: 'cards.png', width: 512, height: 512, tint: light('border') },
   { id: 'buttons', file: 'buttons.png', width: 512, height: 160, tint: light('primary') },
-  { id: 'empty-state', file: 'empty-state.png', width: 512, height: 512, tint: light('info') },
+  { id: 'empty', file: 'empty.png', width: 512, height: 512, tint: light('info') },
   { id: 'home-artwork', file: 'home-artwork.png', width: 512, height: 512, tint: light('primary') },
   { id: 'icon-scan', file: 'icon-scan.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-settings', file: 'icon-settings.png', width: 96, height: 96, tint: light('text') },
@@ -104,14 +104,14 @@ export function createThemeScaffold(slug?: string): ThemeScaffold {
     // Shared across both modes. A slot omitted here inherits nothing and simply
     // draws no artwork, so every slot the schema has is present and wired.
     decoration: {
-      'home.background': { asset: 'home-background', fit: 'cover' as const },
+      'home.wallpaper': { asset: 'home-wallpaper', fit: 'cover' as const },
       'navigation.background': { asset: 'navigation', fit: 'cover' as const },
       'composer.background': { asset: 'composer', fit: 'cover' as const },
       'actions.background': { asset: 'actions', fit: 'cover' as const },
       'tabs.background': { asset: 'tabs', fit: 'cover' as const },
       'cards.decoration': { asset: 'cards', fit: 'cover' as const, opacity: 0.4 },
       'buttons.primary.background': { asset: 'buttons', fit: 'cover' as const },
-      'emptyState.illustration': { asset: 'empty-state', fit: 'contain' as const },
+      'empty.artwork': { asset: 'empty', fit: 'contain' as const },
       // Home's own illustration, between the header row and the server list.
       // Square-ish and contained, like the empty state: it is content, not wallpaper.
       'home.artwork': { asset: 'home-artwork', fit: 'contain' as const },
@@ -122,8 +122,8 @@ export function createThemeScaffold(slug?: string): ThemeScaffold {
     // The per-mode override, demonstrated on the one slot where a single image
     // almost never works for both: the wallpaper behind everything.
     variantDecorations: {
-      light: { 'shell.background': { asset: 'shell-light', fit: 'cover' as const } },
-      dark: { 'shell.background': { asset: 'shell-dark', fit: 'cover' as const } },
+      light: { 'shell.wallpaper': { asset: 'wallpaper-light', fit: 'cover' as const } },
+      dark: { 'shell.wallpaper': { asset: 'wallpaper-dark', fit: 'cover' as const } },
     },
 
     // `template` takes the glyph's shape from the image's alpha and its colour
