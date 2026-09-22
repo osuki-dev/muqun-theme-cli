@@ -114,7 +114,7 @@ test('validate returns a failing outcome, distinct from a command that could not
     const manifest = JSON.parse(fs.readFileSync(join(dir, 'theme.json'), 'utf8'));
     // An asset the manifest declares but the directory does not contain.
     manifest.assets = { paper: { path: 'assets/paper.png' } };
-    manifest.decoration = { 'shell.background': { asset: 'paper' } };
+    manifest.decoration = { 'shell.wallpaper': { asset: 'paper' } };
     fs.writeFileSync(join(dir, 'theme.json'), JSON.stringify(manifest));
 
     const result = await runCommand(commands.validate(dir));

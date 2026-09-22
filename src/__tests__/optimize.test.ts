@@ -23,7 +23,7 @@ function themeWith(assets: Record<string, Uint8Array>, sha = false): ThemeManife
     JSON.stringify({
       ...base,
       assets: declared,
-      decoration: { 'shell.background': { asset: Object.keys(assets)[0] } },
+      decoration: { 'shell.wallpaper': { asset: Object.keys(assets)[0] } },
       variantDecorations: undefined,
       icons: undefined,
       homeIdentity: undefined,
@@ -98,7 +98,7 @@ test('artwork that is already WebP is left exactly alone', async () => {
     JSON.stringify({
       ...createThemeScaffold().manifest,
       assets: { art: { path: 'assets/art.webp' } },
-      decoration: { 'shell.background': { asset: 'art' } },
+      decoration: { 'shell.wallpaper': { asset: 'art' } },
       variantDecorations: undefined,
       icons: undefined,
       homeIdentity: undefined,

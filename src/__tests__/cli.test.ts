@@ -134,13 +134,13 @@ test('validate names the decoration slots a theme leaves unset', () => {
   run('init', 'plain', '--dir', dir);
   const file = join(dir, 'theme.json');
   const manifest = JSON.parse(readFileSync(file, 'utf8'));
-  delete manifest.decoration['home.background'];
+  delete manifest.decoration['home.wallpaper'];
   manifest.decoration['home.artwork'] = null;
   writeFileSync(file, JSON.stringify(manifest));
   const result = run('validate', dir);
   expect(result.code).toBe(0);
   expect(result.stdout).toContain('9/11 decoration slots filled');
-  expect(result.stdout).toContain('unset: home.background, home.artwork');
+  expect(result.stdout).toContain('unset: home.wallpaper, home.artwork');
 
   // The scaffold's preview image counts as used: the gallery draws it.
   const previewed = scratch();
@@ -267,7 +267,7 @@ test('validate reports a declared checksum that does not describe the file', () 
   writeFileSync(join(dir, 'assets', 'paper.png'), png);
   const manifest = JSON.parse(readFileSync(join(dir, 'theme.json'), 'utf8'));
   manifest.assets = { paper: { path: 'assets/paper.png', sha256: 'f'.repeat(64) } };
-  manifest.decoration = { 'shell.background': { asset: 'paper' } };
+  manifest.decoration = { 'shell.wallpaper': { asset: 'paper' } };
   writeFileSync(join(dir, 'theme.json'), JSON.stringify(manifest));
 
   const failed = run('validate', dir);
@@ -389,7 +389,7 @@ test('inside a themes repository, init and pack default into src/ and dist/, and
     id: 'grand-voyage',
     version: '1.0.0',
     package: 'dist/grand-voyage.muqun-theme',
-    assets: 18,
+    assets: 19,
   });
   expect(catalogue.themes[0].sha256).toMatch(/^[0-9a-f]{64}$/);
 
@@ -447,7 +447,7 @@ test('a pull request carries only sources: check --sources proves they pack, and
   // A source that cannot pack fails it, with pack's own reason.
   const manifestFile = join(repo, 'src', 'blue-harbor', 'theme.json');
   const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
-  manifest.assets['shell-light'].path = 'assets/nowhere.png';
+  manifest.assets['wallpaper-light'].path = 'assets/nowhere.png';
   writeFileSync(manifestFile, JSON.stringify(manifest));
   const broken = runIn(repo, 'check', '--sources');
   expect(broken.code).toBe(1);
@@ -456,7 +456,7 @@ test('a pull request carries only sources: check --sources proves they pack, and
   expect(existsSync(join(repo, 'index.json'))).toBe(false);
 
   // Fixed, build packs everything and writes the catalogue; full check agrees.
-  manifest.assets['shell-light'].path = 'assets/shell-light.png';
+  manifest.assets['wallpaper-light'].path = 'assets/wallpaper-light.png';
   writeFileSync(manifestFile, JSON.stringify(manifest));
   const built = runIn(repo, 'build');
   expect(built.code).toBe(0);
@@ -500,8 +500,8 @@ test('build is incremental: an untouched source keeps its package byte for byte,
   expect(readFileSync(join(repo, 'dist', 'amber-dusk.muqun-theme'))).toEqual(amberBefore);
 
   // An asset swapped without a version bump is still a changed source.
-  const asset = join(repo, 'src', 'blue-harbor', 'assets', 'shell-light.png');
-  writeFileSync(asset, readFileSync(join(repo, 'src', 'amber-dusk', 'assets', 'shell-dark.png')));
+  const asset = join(repo, 'src', 'blue-harbor', 'assets', 'wallpaper-light.png');
+  writeFileSync(asset, readFileSync(join(repo, 'src', 'amber-dusk', 'assets', 'wallpaper-dark.png')));
   const third = runIn(repo, 'build');
   expect(third.code).toBe(0);
   expect(third.stdout).toContain('kept dist/amber-dusk.muqun-theme');
@@ -629,12 +629,12 @@ test('preview serves the theme directory to the website, fresh on every request,
     expect(parseThemeManifest(await manifest.text()).id).toBe('harbor');
 
     // A declared asset, byte for byte, as a picture.
-    const asset = await fetch(`${base}assets/shell-light.png`);
+    const asset = await fetch(`${base}assets/wallpaper-light.png`);
     expect(asset.status).toBe(200);
     expect(asset.headers.get('content-type')).toBe('image/png');
     expect(asset.headers.get('access-control-allow-origin')).toBe('*');
     expect(new Uint8Array(await asset.arrayBuffer())).toEqual(
-      new Uint8Array(readFileSync(join(dir, 'assets', 'shell-light.png')))
+      new Uint8Array(readFileSync(join(dir, 'assets', 'wallpaper-light.png')))
     );
 
     // A file the manifest does not declare is not served, and neither is
@@ -647,7 +647,7 @@ test('preview serves the theme directory to the website, fresh on every request,
 
     // The manifest is re-read per request, so an asset declared after the
     // server started is served too.
-    writeFileSync(join(dir, 'assets', 'crest.png'), readFileSync(join(dir, 'assets', 'shell-dark.png')));
+    writeFileSync(join(dir, 'assets', 'crest.png'), readFileSync(join(dir, 'assets', 'wallpaper-dark.png')));
     const edited = JSON.parse(readFileSync(join(dir, 'theme.json'), 'utf8'));
     edited.name = 'Harbor at Dusk';
     edited.assets.crest = { path: 'assets/crest.png' };
@@ -782,7 +782,7 @@ test('build publishes a declared preview beside the package, the index names it,
   writeFileSync(plainFile, JSON.stringify(plainManifest));
   const manifestFile = join(repo, 'src', 'voyage', 'theme.json');
   const manifest = JSON.parse(readFileSync(manifestFile, 'utf8'));
-  manifest.preview = 'shell-light';
+  manifest.preview = 'wallpaper-light';
   writeFileSync(manifestFile, JSON.stringify(manifest));
 
   // The file is the asset as packed -- the WebP pack made of the PNG -- and is
@@ -794,7 +794,7 @@ test('build publishes a declared preview beside the package, the index names it,
   const previewFile = join(repo, 'dist', 'previews', 'voyage.webp');
   expect(existsSync(previewFile)).toBe(true);
   const packed = unpackTheme(readFileSync(join(repo, 'dist', 'voyage.muqun-theme')));
-  expect(sha256(readFileSync(previewFile))).toBe(sha256(packed.assets['shell-light']));
+  expect(sha256(readFileSync(previewFile))).toBe(sha256(packed.assets['wallpaper-light']));
   expect(readFileSync(previewFile).subarray(8, 12).toString()).toBe('WEBP');
   expect(existsSync(join(repo, 'dist', 'previews', 'plain.webp'))).toBe(false);
 
@@ -839,7 +839,7 @@ test('build publishes a declared preview beside the package, the index names it,
     // The URL fetches the file the index named.
     const image = await fetch(entries[1].previewUrl);
     expect(image.status).toBe(200);
-    expect(sha256(new Uint8Array(await image.arrayBuffer()))).toBe(sha256(packed.assets['shell-light']));
+    expect(sha256(new Uint8Array(await image.arrayBuffer()))).toBe(sha256(packed.assets['wallpaper-light']));
   } finally {
     await server.stop(true);
   }
@@ -864,7 +864,7 @@ test('build publishes a declared preview beside the package, the index names it,
   expect(healed.stdout).toContain('preview dist/previews/voyage.webp');
   expect(healed.stdout).toContain('removed dist/previews/stray.png');
   expect(existsSync(join(repo, 'dist', 'previews', 'stray.png'))).toBe(false);
-  expect(sha256(readFileSync(previewFile))).toBe(sha256(packed.assets['shell-light']));
+  expect(sha256(readFileSync(previewFile))).toBe(sha256(packed.assets['wallpaper-light']));
   expect(runIn(repo, 'check').code).toBe(0);
 
   // A theme that stops declaring a preview takes its file and its entry with it.

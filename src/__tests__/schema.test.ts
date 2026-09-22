@@ -136,9 +136,9 @@ describe('theme v1 contract', () => {
 
   test('validates all shared, mode, responsive and logo references', () => {
     for (const extra of [
-      { decoration: { 'shell.background': { asset: 'missing' } } },
-      { variantDecorations: { dark: { 'shell.background': { asset: 'missing' } } } },
-      { decoration: { 'shell.background': { asset: 'paper', regular: { asset: 'missing' } } } },
+      { decoration: { 'shell.wallpaper': { asset: 'missing' } } },
+      { variantDecorations: { dark: { 'shell.wallpaper': { asset: 'missing' } } } },
+      { decoration: { 'shell.wallpaper': { asset: 'paper', regular: { asset: 'missing' } } } },
       { homeIdentity: { logo: { mode: 'custom', asset: 'missing' } } },
     ]) {
       expect(() =>

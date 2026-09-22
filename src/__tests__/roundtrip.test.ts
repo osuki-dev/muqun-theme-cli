@@ -34,11 +34,11 @@ function themeWithArtwork(): { manifest: ThemeManifest; assets: Record<string, U
     crest: { path: 'assets/crest.png', sha256: sha256(PNG_1X1_ALT) },
   };
   manifest.decoration = {
-    'shell.background': { asset: 'paper', fit: 'cover', opacity: 0.6 },
-    'emptyState.illustration': { asset: 'crest', fit: 'contain' },
+    'shell.wallpaper': { asset: 'paper', fit: 'cover', opacity: 0.6 },
+    'empty.artwork': { asset: 'crest', fit: 'contain' },
   };
   manifest.variantDecorations = {
-    dark: { 'shell.background': { asset: 'crest', compact: { asset: 'paper' } } },
+    dark: { 'shell.wallpaper': { asset: 'crest', compact: { asset: 'paper' } } },
   };
   manifest.icons = { 'chrome.back': { asset: 'crest', render: 'template' } };
   manifest.homeIdentity = { logo: { mode: 'custom', asset: 'crest' } };
@@ -101,7 +101,7 @@ test('verification reports artwork that is declared but never drawn', () => {
   delete theme.manifest.icons;
   delete theme.manifest.homeIdentity;
   delete theme.manifest.variantDecorations;
-  theme.manifest.decoration = { 'shell.background': { asset: 'paper' } };
+  theme.manifest.decoration = { 'shell.wallpaper': { asset: 'paper' } };
   const issues = verifyAssets(theme.manifest, theme.assets).issues;
   expect(
     issues.some(
@@ -135,7 +135,7 @@ test('verification refuses an animated WebP that the ZIP layer would happily car
 
   const manifest = createThemeStarter();
   manifest.assets = { motion: { path: 'assets/motion.webp' } };
-  manifest.decoration = { 'shell.background': { asset: 'motion' } };
+  manifest.decoration = { 'shell.wallpaper': { asset: 'motion' } };
 
   // It packs and unpacks without complaint...
   const restored = unpackTheme(packTheme({ manifest, assets: { motion: animated } }));

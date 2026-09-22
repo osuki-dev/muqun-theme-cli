@@ -43,9 +43,20 @@ export const themeColorsSchema = z.strictObject({
   info: opaque,
 });
 
+export const THEME_AMBIENT_EFFECTS = ['none', 'rain', 'particles', 'scanlines', 'bloom'] as const;
+export type ThemeAmbientEffect = (typeof THEME_AMBIENT_EFFECTS)[number];
+
+export const themeEffectsSchema = z.strictObject({
+  ambient: z.enum(THEME_AMBIENT_EFFECTS).default('none'),
+  intensity: z.number().min(0).max(1).optional(),
+  speed: z.number().min(0).max(2).optional(),
+});
+export type ThemeEffects = z.infer<typeof themeEffectsSchema>;
+
 export const themeVariantSchema = z.strictObject({
   colors: themeColorsSchema,
   surfaces: z.strictObject({ backgroundOpacity: z.number().min(0).max(1).optional() }).optional(),
+  effects: themeEffectsSchema.optional(),
   terminal: z.strictObject({
     background: opaque,
     backgroundOpacity: z.number().min(0).max(1).optional(),
@@ -126,7 +137,14 @@ const slotSchema = imageSchema
  *
  * The app reads only these names. The schema below deliberately accepts others.
  */
-export const THEME_ICONS = ['chrome.back', 'chrome.send', 'chrome.attach', 'chrome.scan', 'chrome.settings'] as const;
+export const THEME_ICONS = [
+  'chrome.back',
+  'chrome.send',
+  'chrome.attach',
+  'chrome.scan',
+  'chrome.settings',
+  'home.arrow',
+] as const;
 export type ThemeIconName = (typeof THEME_ICONS)[number];
 
 const iconSchema = z.strictObject({
@@ -169,8 +187,8 @@ export const iconsSchema = z.record(z.string(), iconSchema.nullable().optional()
  * type error -- while the schema stays forward compatible.
  */
 export const THEME_SLOTS = [
-  'shell.background',
-  'home.background',
+  'shell.wallpaper',
+  'home.wallpaper',
   'home.artwork',
   'navigation.background',
   'composer.background',
@@ -178,7 +196,7 @@ export const THEME_SLOTS = [
   'cards.decoration',
   'buttons.primary.background',
   'tabs.background',
-  'emptyState.illustration',
+  'empty.artwork',
   'launch.artwork',
 ] as const;
 export type ThemeSlot = (typeof THEME_SLOTS)[number];
@@ -277,6 +295,7 @@ export const themeManifestSchema = z.object({
       toolbarBackground: z.boolean().optional(),
     })
     .optional(),
+  effects: themeEffectsSchema.optional(),
   variants: z.strictObject({ light: themeVariantSchema, dark: themeVariantSchema }),
   materials: themeMaterialsSchema.optional(),
   assets: z.record(identifier, assetSchema).optional(),
