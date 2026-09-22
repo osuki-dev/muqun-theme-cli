@@ -1,5 +1,19 @@
 # @osuki-dev/muqun-theme
 
+## 2.1.0
+
+### Minor Changes
+
+- [#28](https://github.com/osuki-dev/muqun-theme-cli/pull/28) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Theme System v2 architecture, slot normalization, and ambient effects.
+
+  - Standardize decoration slots to v2 architecture:
+    - `shell.background` -> `shell.wallpaper`
+    - `home.background` -> `home.wallpaper`
+    - `emptyState.illustration` -> `empty.artwork`
+  - Introduce `home.arrow` navigation icon to `THEME_ICON_SLOTS` and CLI scaffolding with fallback to system chevrons.
+  - Add `effects` ambient shader schema support and validation (`rain`, `particles`, `scanlines`, `bloom`).
+  - Update starter manifest, scaffold, and bundled authoring documentation.
+
 ## 2.0.0
 
 ### Major Changes
