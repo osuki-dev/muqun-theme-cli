@@ -27,12 +27,38 @@ export const HOST = '127.0.0.1';
 export const DEFAULT_PORT = 4173;
 export const DEFAULT_SITE = 'https://muqun.dev';
 
+export const PREVIEW_LAYOUTS = ['classic', 'editorial'] as const;
+export type PreviewLayout = (typeof PREVIEW_LAYOUTS)[number];
+
+export const PREVIEW_DEVICES = ['phone', 'tablet'] as const;
+export type PreviewDevice = (typeof PREVIEW_DEVICES)[number];
+
+export const PREVIEW_MODES = ['light', 'dark'] as const;
+export type PreviewMode = (typeof PREVIEW_MODES)[number];
+
+export type PreviewPageOptions = {
+  readonly layout?: PreviewLayout;
+  readonly device?: PreviewDevice;
+  readonly mode?: PreviewMode;
+  readonly refresh?: number;
+};
+
 /** The page that draws a theme served at `source`. */
-export const previewPageUrl = (site: string, source: string): string =>
-  // `source` is left unencoded: `:` and `/` are legal in a query, the page reads
-  // it back through URLSearchParams either way, and an address a person can
-  // read is an address they can paste.
-  `${site.replace(/\/+$/, '')}/themes/preview/?source=${source}`;
+export const previewPageUrl = (
+  site: string,
+  source: string,
+  options: PreviewPageOptions = {}
+): string => {
+  // Keep `source` in the same readable form as before. URLSearchParams on the
+  // website decodes both forms, but preserving this spelling keeps existing
+  // printed URLs and refresh behaviour stable for scripts and bookmarks.
+  const query = [`source=${source}`];
+  if (options.refresh !== undefined) query.push(`refresh=${encodeURIComponent(String(options.refresh))}`);
+  if (options.layout !== undefined) query.push(`layout=${options.layout}`);
+  if (options.device !== undefined) query.push(`device=${options.device}`);
+  if (options.mode !== undefined) query.push(`mode=${options.mode}`);
+  return `${site.replace(/\/+$/, '')}/themes/preview/?${query.join('&')}`;
+};
 
 export type PreviewServer = {
   readonly url: string;

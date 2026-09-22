@@ -151,19 +151,19 @@ describe('theme v1 contract', () => {
     }
   });
 
-  test('the Home hero is a slot this build draws, with the same controls every slot has', () => {
+  test('the Home artwork is a slot this build draws, with the same controls every slot has', () => {
     // Added to the app after v1 opened, and mirrored here because a CLI that
     // warned "not a slot this build knows" about a slot the app now draws
     // would be telling authors to remove working artwork.
-    expect(THEME_SLOTS).toContain('home.hero');
+    expect(THEME_SLOTS).toContain('home.artwork');
 
     const theme = parse({
       ...createThemeStarter(),
       assets: { hero: { path: 'assets/hero.png' }, wide: { path: 'assets/wide.png' } },
-      // Every control `emptyState.illustration` has, because `home.hero` is
+      // Every control `emptyState.illustration` has, because `home.artwork` is
       // validated as an ordinary image slot and nothing about it is special.
       decoration: {
-        'home.hero': {
+        'home.artwork': {
           asset: 'hero',
           fit: 'contain',
           opacity: 0.9,
@@ -172,56 +172,56 @@ describe('theme v1 contract', () => {
           regular: { asset: 'wide', fit: 'contain' },
         },
       },
-      variantDecorations: { dark: { 'home.hero': { asset: 'wide' } } },
-      homeIdentity: { hero: { mode: 'hidden' } },
+      variantDecorations: { dark: { 'home.artwork': { asset: 'wide' } } },
+      homeIdentity: { artwork: { mode: 'hidden' } },
     });
-    expect(theme.decoration?.['home.hero']?.fit).toBe('contain');
-    expect(theme.homeIdentity?.hero).toEqual({ mode: 'hidden' });
+    expect(theme.decoration?.['home.artwork']?.fit).toBe('contain');
+    expect(theme.homeIdentity?.artwork).toEqual({ mode: 'hidden' });
 
     // `null` disables it per mode, the way it does for every other slot.
     expect(() =>
-      parse({ ...createThemeStarter(), variantDecorations: { light: { 'home.hero': null } } })
+      parse({ ...createThemeStarter(), variantDecorations: { light: { 'home.artwork': null } } })
     ).not.toThrow();
 
     // And the slot is known, so declaring it draws no "unrecognised slot" warning.
     const raw = {
       ...createThemeStarter(),
       assets: { hero: { path: 'assets/hero.png' } },
-      decoration: { 'home.hero': { asset: 'hero', fit: 'contain' } },
-      homeIdentity: { hero: { mode: 'default' } },
+      decoration: { 'home.artwork': { asset: 'hero', fit: 'contain' } },
+      homeIdentity: { artwork: { mode: 'default' } },
     };
     expect(verifyManifest(parseThemeManifest(JSON.stringify(raw)), raw)).toEqual([]);
   });
 
-  test('the Home hero refuses what every other slot refuses', () => {
+  test('the Home artwork refuses what every other slot refuses', () => {
     const base = {
       ...createThemeStarter(),
       assets: { hero: { path: 'assets/hero.png' } },
     };
     // An asset nothing declares, in the slot and in a per-width override.
-    expect(() => parse({ ...base, decoration: { 'home.hero': { asset: 'missing' } } })).toThrow(
+    expect(() => parse({ ...base, decoration: { 'home.artwork': { asset: 'missing' } } })).toThrow(
       'Unknown asset'
     );
     expect(() =>
-      parse({ ...base, decoration: { 'home.hero': { asset: 'hero', compact: { asset: 'missing' } } } })
+      parse({ ...base, decoration: { 'home.artwork': { asset: 'hero', compact: { asset: 'missing' } } } })
     ).toThrow('Unknown asset');
     // A fit outside the three the renderer has, and a key the slot does not own.
     expect(() =>
-      parse({ ...base, decoration: { 'home.hero': { asset: 'hero', fit: 'stretch' } } })
+      parse({ ...base, decoration: { 'home.artwork': { asset: 'hero', fit: 'stretch' } } })
     ).toThrow();
     expect(() =>
-      parse({ ...base, decoration: { 'home.hero': { asset: 'hero', height: 180 } } })
+      parse({ ...base, decoration: { 'home.artwork': { asset: 'hero', height: 180 } } })
     ).toThrow();
   });
 
-  test('homeIdentity.hero is a default/hidden switch and nothing else', () => {
+  test('homeIdentity.artwork is a default/hidden switch and nothing else', () => {
     const hero = (value: unknown) =>
-      parse({ ...createThemeStarter(), homeIdentity: { hero: value } });
+      parse({ ...createThemeStarter(), homeIdentity: { artwork: value } });
     for (const mode of ['default', 'hidden'] as const)
-      expect(hero({ mode }).homeIdentity?.hero).toEqual({ mode });
+      expect(hero({ mode }).homeIdentity?.artwork).toEqual({ mode });
 
     // Omitting it is legal, and means the same as `default`.
-    expect(parse({ ...createThemeStarter(), homeIdentity: {} }).homeIdentity?.hero).toBeUndefined();
+    expect(parse({ ...createThemeStarter(), homeIdentity: {} }).homeIdentity?.artwork).toBeUndefined();
 
     // No `custom` member: the asset, its fit and its overrides all belong to
     // the slot, so there is nothing here to customise.
