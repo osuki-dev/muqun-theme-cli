@@ -56,6 +56,7 @@ const PLACEHOLDERS: readonly Placeholder[] = [
   { id: 'home-artwork', file: 'home-artwork.png', width: 512, height: 512, tint: light('primary') },
   { id: 'icon-scan', file: 'icon-scan.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-settings', file: 'icon-settings.png', width: 96, height: 96, tint: light('text') },
+  { id: 'icon-arrow', file: 'icon-arrow.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-back', file: 'icon-back.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-send', file: 'icon-send.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-attach', file: 'icon-attach.png', width: 96, height: 96, tint: light('text') },
@@ -130,6 +131,7 @@ export function createThemeScaffold(slug?: string): ThemeScaffold {
     icons: {
       'chrome.scan': { asset: 'icon-scan', render: 'template' as const },
       'chrome.settings': { asset: 'icon-settings', render: 'template' as const },
+      'home.arrow': { asset: 'icon-arrow', render: 'template' as const },
       'chrome.back': { asset: 'icon-back', render: 'template' as const },
       'chrome.send': { asset: 'icon-send', render: 'template' as const },
       'chrome.attach': { asset: 'icon-attach', render: 'template' as const },

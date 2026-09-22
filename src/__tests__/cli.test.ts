@@ -389,7 +389,7 @@ test('inside a themes repository, init and pack default into src/ and dist/, and
     id: 'grand-voyage',
     version: '1.0.0',
     package: 'dist/grand-voyage.muqun-theme',
-    assets: 18,
+    assets: 19,
   });
   expect(catalogue.themes[0].sha256).toMatch(/^[0-9a-f]{64}$/);
 
