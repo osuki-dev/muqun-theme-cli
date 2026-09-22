@@ -28,6 +28,7 @@ import {
   untilInterrupted,
   HOST,
 } from './preview-server.js';
+import type { PreviewDevice, PreviewLayout, PreviewMode } from './preview-server.js';
 import type { Output } from './output.js';
 import {
   DIST_DIR,
@@ -345,6 +346,9 @@ export type PreviewOptions = {
   /** The website whose preview page to open; a local checkout works too. */
   readonly site: string;
   readonly open: boolean;
+  readonly layout?: PreviewLayout;
+  readonly device?: PreviewDevice;
+  readonly mode?: PreviewMode;
 };
 
 /**
@@ -370,7 +374,11 @@ export const preview = (
     const { manifest } = yield* readManifestFile(path.join(root, 'theme.json'));
 
     const local = `http://${HOST}:${options.port}/`;
-    const page = previewPageUrl(options.site, local);
+    const page = previewPageUrl(options.site, local, {
+      layout: options.layout,
+      device: options.device,
+      mode: options.mode,
+    });
 
     yield* Effect.acquireUseRelease(
       Effect.try({

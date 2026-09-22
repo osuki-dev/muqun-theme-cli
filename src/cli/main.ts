@@ -8,7 +8,14 @@ import { DEFAULT_API } from './catalog.js';
 import * as commands from './commands.js';
 import { red } from './format.js';
 import * as Output from './output.js';
-import { DEFAULT_PORT, DEFAULT_SITE, HOST } from './preview-server.js';
+import {
+  DEFAULT_PORT,
+  DEFAULT_SITE,
+  HOST,
+  PREVIEW_DEVICES,
+  PREVIEW_LAYOUTS,
+  PREVIEW_MODES,
+} from './preview-server.js';
 import type { CommandError } from './theme-source.js';
 
 import pkg from '../../package.json' with { type: 'json' };
@@ -173,10 +180,31 @@ const preview = Command.make('preview', {
     ),
     Flag.withDefault(DEFAULT_SITE)
   ),
+  layout: Flag.Literals('layout', PREVIEW_LAYOUTS).pipe(
+    Flag.withDescription('preview layout (classic or editorial)'),
+    Flag.optional
+  ),
+  device: Flag.Literals('device', PREVIEW_DEVICES).pipe(
+    Flag.withDescription('preview device (phone or tablet)'),
+    Flag.optional
+  ),
+  mode: Flag.Literals('mode', PREVIEW_MODES).pipe(
+    Flag.withDescription('preview colour mode (light or dark)'),
+    Flag.optional
+  ),
 }).pipe(
   Command.withDescription("show a theme in a browser while you edit it, on the website's live preview"),
-  Command.withHandler(({ target, port, noOpen, site }) =>
-    runOutcome(commands.preview(Option.getOrUndefined(target) ?? '.', { port, site, open: !noOpen }))
+  Command.withHandler(({ target, port, noOpen, site, layout, device, mode }) =>
+    runOutcome(
+      commands.preview(Option.getOrUndefined(target) ?? '.', {
+        port,
+        site,
+        open: !noOpen,
+        layout: Option.getOrUndefined(layout),
+        device: Option.getOrUndefined(device),
+        mode: Option.getOrUndefined(mode),
+      })
+    )
   )
 );
 

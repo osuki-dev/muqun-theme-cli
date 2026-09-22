@@ -135,12 +135,12 @@ test('validate names the decoration slots a theme leaves unset', () => {
   const file = join(dir, 'theme.json');
   const manifest = JSON.parse(readFileSync(file, 'utf8'));
   delete manifest.decoration['home.background'];
-  manifest.decoration['home.decoration'] = null;
+  manifest.decoration['home.artwork'] = null;
   writeFileSync(file, JSON.stringify(manifest));
   const result = run('validate', dir);
   expect(result.code).toBe(0);
   expect(result.stdout).toContain('9/11 decoration slots filled');
-  expect(result.stdout).toContain('unset: home.background, home.decoration');
+  expect(result.stdout).toContain('unset: home.background, home.artwork');
 
   // The scaffold's preview image counts as used: the gallery draws it.
   const previewed = scratch();
@@ -389,7 +389,7 @@ test('inside a themes repository, init and pack default into src/ and dist/, and
     id: 'grand-voyage',
     version: '1.0.0',
     package: 'dist/grand-voyage.muqun-theme',
-    assets: 17,
+    assets: 18,
   });
   expect(catalogue.themes[0].sha256).toMatch(/^[0-9a-f]{64}$/);
 
@@ -597,11 +597,28 @@ test('preview serves the theme directory to the website, fresh on every request,
   const port = await freePort();
   const base = `http://127.0.0.1:${port}/`;
   // Spawned, not spawnSync: the command runs until it is told to stop.
-  const proc = Bun.spawn(['bun', CLI, 'preview', dir, '--no-open', '--port', String(port)], {
-    env: { ...process.env, NO_COLOR: '1' },
-    stdout: 'pipe',
-    stderr: 'pipe',
-  });
+  const proc = Bun.spawn(
+    [
+      'bun',
+      CLI,
+      'preview',
+      dir,
+      '--no-open',
+      '--port',
+      String(port),
+      '--layout',
+      'editorial',
+      '--device',
+      'tablet',
+      '--mode',
+      'dark',
+    ],
+    {
+      env: { ...process.env, NO_COLOR: '1' },
+      stdout: 'pipe',
+      stderr: 'pipe',
+    }
+  );
   try {
     // The manifest, as JSON, with the headers a cross-origin page needs.
     const manifest = await awaitServer(proc, `${base}theme.json`);
@@ -645,7 +662,7 @@ test('preview serves the theme directory to the website, fresh on every request,
     const landing = await fetch(base, { redirect: 'manual' });
     expect(landing.status).toBe(302);
     expect(landing.headers.get('location')).toBe(
-      `https://muqun.dev/themes/preview/?source=http://127.0.0.1:${port}/`
+      `https://muqun.dev/themes/preview/?source=http://127.0.0.1:${port}/&layout=editorial&device=tablet&mode=dark`
     );
   } finally {
     // A signal is how the command ends; it must stop the server and exit clean.
@@ -654,9 +671,25 @@ test('preview serves the theme directory to the website, fresh on every request,
   }
   const stdout = await new Response(proc.stdout).text();
   expect(stdout).toContain('serving harbor (harbor)');
-  expect(stdout).toContain(`https://muqun.dev/themes/preview/?source=http://127.0.0.1:${port}/`);
+  expect(stdout).toContain(
+    `https://muqun.dev/themes/preview/?source=http://127.0.0.1:${port}/&layout=editorial&device=tablet&mode=dark`
+  );
   expect(stdout).toContain('stopped');
 }, SUBPROCESS_HEAVY);
+
+test('preview rejects unsupported layout, device, and mode values', () => {
+  const dir = scratch();
+  expect(run('init', 'controls', '--dir', dir).code).toBe(0);
+  for (const [flag, value] of [
+    ['--layout', 'split'],
+    ['--device', 'watch'],
+    ['--mode', 'sepia'],
+  ] as const) {
+    const result = run('preview', dir, '--no-open', flag, value);
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain(flag);
+  }
+});
 
 test('preview refuses a target with no usable theme.json, before it serves anything', async () => {
   const port = await freePort();
@@ -850,7 +883,7 @@ test('build publishes a declared preview beside the package, the index names it,
   expect(clean.stdout).not.toContain('dist/previews/');
 }, SUBPROCESS_HEAVY);
 
-test('check accepts a theme that declares the Home hero, and still names a misspelling', () => {
+test('check accepts a theme that declares the Home artwork, and still names a misspelling', () => {
   // The slot the app added after v1 opened. The interesting case is the whole
   // path an author actually takes -- a source in a repository, checked before
   // it is packed -- because that is where a CLI lagging the app would tell them
@@ -865,25 +898,25 @@ test('check accepts a theme that declares the Home hero, and still names a missp
   // Hand-written rather than the scaffold's own entry: the slot carrying a
   // per-mode override and the switch turned off, which is the shape the app
   // documents for shipping the artwork with the hero hidden by default.
-  manifest.decoration['home.hero'] = { asset: 'home-hero', fit: 'contain', opacity: 0.85 };
-  manifest.variantDecorations.dark['home.hero'] = { asset: 'home-hero', fit: 'contain' };
-  manifest.homeIdentity.hero = { mode: 'hidden' };
+  manifest.decoration['home.artwork'] = { asset: 'home-artwork', fit: 'contain', opacity: 0.85 };
+  manifest.variantDecorations.dark['home.artwork'] = { asset: 'home-artwork', fit: 'contain' };
+  manifest.homeIdentity.artwork = { mode: 'hidden' };
   writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
 
   const sources = runIn(repo, 'check', '--sources');
   expect(sources.code).toBe(0);
   expect(sources.stdout).toContain('check ok');
-  expect(sources.stdout).not.toContain('home.hero');
+  expect(sources.stdout).not.toContain('home.artwork');
   expect(sources.stdout).not.toContain('not a slot this build knows');
   expect(runIn(repo, 'validate', 'hearth').stdout).toContain('11/11 decoration slots filled');
 
   // And the tolerance is still there for a name this build has not heard of: a
   // typo is a warning an author can act on, never a refusal.
-  manifest.decoration['home.heroe'] = { asset: 'home-hero', fit: 'contain' };
+  manifest.decoration['home.artworke'] = { asset: 'home-artwork', fit: 'contain' };
   writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
   const misspelt = runIn(repo, 'check', '--sources');
   expect(misspelt.code).toBe(0);
-  expect(misspelt.stdout).toContain('decoration.home.heroe');
+  expect(misspelt.stdout).toContain('decoration.home.artworke');
   expect(misspelt.stdout).toContain('not a slot this build knows');
-  expect(misspelt.stdout).toContain('home.hero');
+  expect(misspelt.stdout).toContain('home.artwork');
 }, SUBPROCESS_HEAVY);

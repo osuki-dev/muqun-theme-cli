@@ -98,7 +98,7 @@ exists. `pack` works on it before you have changed anything.
 
 ```
 $ muqun-theme init grand-voyage
-created grand-voyage/theme.json (11 decoration slots, 17 placeholder images)
+created grand-voyage/theme.json (11 decoration slots, 18 placeholder images)
   Replace the flat tints in assets/ with real artwork, or delete slots you do not want.
   Next: muqun-theme contrast grand-voyage    then: muqun-theme pack grand-voyage
 ```
@@ -107,13 +107,13 @@ Without `--dir`, the theme gets a directory named after its id: `./<id>`, or
 `src/<id>` inside a themes repository. A default location is never allowed to
 overwrite a theme that is already there; `--dir` writes wherever you say.
 
-That writes `theme.json` plus seventeen PNGs in `assets/` — about 52 KB in total:
+That writes `theme.json` plus eighteen PNGs in `assets/`:
 
 ```
 assets/shell-light.png      assets/shell-dark.png       assets/home-background.png
-assets/home-banner.png      assets/navigation.png       assets/composer.png
+assets/navigation.png       assets/composer.png
 assets/actions.png          assets/tabs.png             assets/cards.png
-assets/buttons.png          assets/empty-state.png      assets/home-hero.png
+assets/buttons.png          assets/empty-state.png      assets/home-artwork.png
 assets/icon-back.png        assets/icon-send.png        assets/icon-attach.png
 assets/logo.png             assets/preview.png
 ```
@@ -141,9 +141,9 @@ still in place:
 ```
 $ muqun-theme validate ./grand-voyage
 valid grand-voyage (grand-voyage 1.0.0)
-  17/32 asset(s), 52.3 KiB of artwork
-  warning 17x still the placeholder written by `muqun-theme init`
-          shell-light, shell-dark, home-background, home-banner, navigation, composer, actions, tabs, +9 more
+  18/32 asset(s)
+  warning 18x still the placeholder written by `muqun-theme init`
+          shell-light, shell-dark, home-background, navigation, composer, actions, tabs, home-artwork, +8 more
 ```
 
 Replace one and the count goes down. It is a warning rather than an error,
@@ -755,7 +755,7 @@ The eleven slots:
 | ---- | ----------------- |
 | `shell.background` | Shared wallpaper behind everything. The only full-screen slot. |
 | `home.background` | Overrides the wallpaper on Home. |
-| `home.decoration` | A contained 2:1 banner on Home, max width 560. Not wallpaper. |
+| `home.artwork` | The single Home foreground, positioned by Classic or Editorial layout. |
 | `navigation.background` | The navigation bar. |
 | `composer.background` | The input composer. |
 | `actions.background` | The actions bar. |
@@ -763,7 +763,7 @@ The eleven slots:
 | `cards.decoration` | Cards. |
 | `buttons.primary.background` | Primary buttons. |
 | `emptyState.illustration` | Empty states. Use a square, `contain`-fit image. |
-| `home.hero` | Home's own illustration, between the header row and the server list. Square-ish, `contain`-fit, at most 1024px; content rather than wallpaper, so no words in it. Hidden while the empty state is showing. |
+| `launch.artwork` | Optional startup override; omission or null falls back to Home artwork, then branding. |
 
 Each slot takes `asset`, plus optional `fit` (`cover`, `contain`, `tile`),
 `opacity` (0..1), and `focalPoint` (`{x, y}`, each 0..1). It may also carry
@@ -802,7 +802,7 @@ to `solid` where unsupported.
 "homeIdentity": {
   "name": { "mode": "custom", "text": "Grand Voyage" },  // or default | hidden
   "logo": { "mode": "custom", "asset": "crest" },        // or default | hidden
-  "hero": { "mode": "hidden" }                           // default | hidden
+  "artwork": { "mode": "hidden" }                           // default | hidden
 }
 ```
 
@@ -810,12 +810,11 @@ A pack that says nothing here gets nothing: once a theme is applied, Home is the
 theme's, and the app does not print its own name over your illustration. Ask for
 it back with `"mode": "default"`. This never renames the launcher icon.
 
-`hero` is the exception to that shape, and the only member with no `custom` mode:
-the picture is the `home.hero` slot, and everything customisable about it — the
-asset, its `fit`, its `opacity`, its per-mode and per-width overrides — belongs
-to the slot. This is only the switch. Saying nothing means `default`, which draws
-the hero whenever `home.hero` is declared, so an author turns it on by drawing
-one; `hidden` ships the artwork with the switch off, for a reader to turn on.
+`artwork` is the default/hidden switch for the single `home.artwork` foreground.
+Its asset, fit, opacity and mode/width overrides belong to the slot. Both layouts
+draw at most one foreground. `home.background` remains separate wallpaper.
+Startup resolves `launch.artwork`, then `home.artwork`, then the brand fallback.
+An explicit null disables only the startup override, allowing the same fallback chain.
 
 ### Limits
 
