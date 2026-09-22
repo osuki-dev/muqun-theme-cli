@@ -30,7 +30,7 @@ bun "$CLI" validate grand-voyage
 bun "$CLI" index
 bun "$CLI" check
 # A declared preview is published beside the package by build, and check holds it there.
-bun -e 'const f = "src/grand-voyage/theme.json"; const m = JSON.parse(await Bun.file(f).text()); m.preview = "shell-light"; await Bun.write(f, JSON.stringify(m, null, 2))'
+bun -e 'const f = "src/grand-voyage/theme.json"; const m = JSON.parse(await Bun.file(f).text()); m.preview = "wallpaper-light"; await Bun.write(f, JSON.stringify(m, null, 2))'
 bun "$CLI" build
 bun "$CLI" check
 bun "$CLI" list --from index.json
