@@ -1,5 +1,11 @@
 # @osuki-dev/muqun-theme
 
+## 2.2.0
+
+### Minor Changes
+
+- [#30](https://github.com/osuki-dev/muqun-theme-cli/pull/30) [`188b766`](https://github.com/osuki-dev/muqun-theme-cli/commit/188b76668c6024c8f817a4074892d11ec7211e67) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Document and scaffold the optional chrome.create icon for OpenCode’s new-session control. Existing Apps ignore the new icon name and keep their native Plus; no theme schema version change is required. Clarify chrome.attach usage across composer controls.
+
 ## 2.1.0
 
 ### Minor Changes
