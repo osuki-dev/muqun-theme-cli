@@ -293,3 +293,12 @@ test('every open name this build does not know reaches the author as a warning',
     issues.find((issue) => issue.path === 'materials.navigation')?.message
   ).toContain('render as auto');
 });
+
+test('sparse ambient effects validate speed boundaries and reject unknown effects', () => {
+  for (const ambient of ['dust', 'embers', 'snow', 'stars']) {
+    const theme = createThemeStarter();
+    expect(parse({ ...theme, effects: { ambient, intensity: 0.3, speed: 0 } }).effects?.speed).toBe(0);
+    expect(() => parse({ ...theme, effects: { ambient, speed: 2.1 } })).toThrow();
+  }
+  expect(() => parse({ ...createThemeStarter(), effects: { ambient: 'unknown' } })).toThrow();
+});

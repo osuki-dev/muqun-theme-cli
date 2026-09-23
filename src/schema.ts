@@ -43,7 +43,7 @@ export const themeColorsSchema = z.strictObject({
   info: opaque,
 });
 
-export const THEME_AMBIENT_EFFECTS = ['none', 'rain', 'particles', 'scanlines', 'bloom'] as const;
+export const THEME_AMBIENT_EFFECTS = ['none', 'rain', 'particles', 'scanlines', 'bloom', 'dust', 'embers', 'snow', 'stars'] as const;
 export type ThemeAmbientEffect = (typeof THEME_AMBIENT_EFFECTS)[number];
 
 export const themeEffectsSchema = z.strictObject({
