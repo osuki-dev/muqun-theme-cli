@@ -1,5 +1,13 @@
 # @osuki-dev/muqun-theme
 
+## 2.3.0
+
+### Minor Changes
+
+- [#32](https://github.com/osuki-dev/muqun-theme-cli/pull/32) [`3a9470f`](https://github.com/osuki-dev/muqun-theme-cli/commit/3a9470f69cd3bfa15ec6514bd19dd2b5e6819dcd) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Accept `dust`, `embers`, `snow`, and `stars` ambient effects in theme manifests and generated authoring schema. Document static speed, restrained particle settings, and the requirement for a compatible App release before publishing themes with these new values.
+
+  Add bounded density and size controls, theme color role palettes, and eight motion directions. Unsupported controls remain valid and produce authoring warnings instead of validation errors.
+
 ## 2.2.0
 
 ### Minor Changes
