@@ -59,6 +59,7 @@ const PLACEHOLDERS: readonly Placeholder[] = [
   { id: 'icon-arrow', file: 'icon-arrow.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-back', file: 'icon-back.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-send', file: 'icon-send.png', width: 96, height: 96, tint: light('text') },
+  { id: 'icon-create', file: 'icon-create.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-attach', file: 'icon-attach.png', width: 96, height: 96, tint: light('text') },
   { id: 'logo', file: 'logo.png', width: 256, height: 256, tint: light('primary') },
   // The gallery cover: light look on the left half, dark on the right, 16:10.
@@ -134,6 +135,7 @@ export function createThemeScaffold(slug?: string): ThemeScaffold {
       'home.arrow': { asset: 'icon-arrow', render: 'template' as const },
       'chrome.back': { asset: 'icon-back', render: 'template' as const },
       'chrome.send': { asset: 'icon-send', render: 'template' as const },
+      'chrome.create': { asset: 'icon-create', render: 'template' as const },
       'chrome.attach': { asset: 'icon-attach', render: 'template' as const },
     },
 

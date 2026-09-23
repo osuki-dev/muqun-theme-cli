@@ -71,8 +71,9 @@ If supplying SHA-256, compute it from the actual file bytes.
 - homeIdentity.artwork is the Home default switch: omitted/default shows declared artwork;
   hidden turns it off by default. Do not repeat its subject in home.background.
 - icons replaces a chrome glyph. Known names are chrome.back, chrome.send,
-  chrome.attach, chrome.scan and chrome.settings. The last two replace Home's
+  chrome.attach, chrome.create, chrome.scan and chrome.settings. The last two replace Home's
   gateway QR scanner and settings glyphs in both layouts, at 20 dp by default.
+  chrome.create replaces the OpenCode header’s create-session Plus glyph; omission or a failed asset keeps the native Plus.
   The first three are the header's back arrow and the composer's send and attachment
   controls, the last two drawn at 17pt in the primary colour by default. An
   unknown name is ignored rather than failing the theme, so an older app simply keeps
