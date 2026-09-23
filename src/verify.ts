@@ -208,6 +208,27 @@ function unknownNames(
  */
 export function verifyManifest(manifest: ThemeManifest, raw?: unknown): VerifyIssue[] {
   const issues: VerifyIssue[] = [];
+  for (const [path, effects] of [
+    ['effects', manifest.effects],
+    ['variants.light.effects', manifest.variants.light.effects],
+    ['variants.dark.effects', manifest.variants.dark.effects],
+  ] as const) {
+    if (!effects) continue;
+    const ambient = effects.ambient;
+    const supported = {
+      speed: ambient !== 'none' && ambient !== 'scanlines',
+      density: ambient !== 'none' && ambient !== 'bloom',
+      size: ambient !== 'none',
+      palette: ambient !== 'none',
+      direction: ['rain', 'particles', 'dust', 'embers', 'snow'].includes(ambient),
+    };
+    for (const field of ['speed', 'density', 'size', 'palette', 'direction'] as const) {
+      if (effects[field] !== undefined && !supported[field]) issues.push({
+        severity: 'warning', path: `${path}.${field}`,
+        message: `${ambient} does not use ${field}; the renderer ignores this setting`,
+      });
+    }
+  }
   const declared = (value: unknown) =>
     value && typeof value === 'object' ? Object.keys(value) : [];
 

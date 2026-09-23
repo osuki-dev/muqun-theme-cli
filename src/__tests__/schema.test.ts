@@ -7,6 +7,7 @@ import {
   themeJsonSchema,
   THEME_LIMITS,
   THEME_SLOTS,
+  type ThemeEffects,
 } from '../schema.js';
 
 import { verifyManifest } from '../verify.js';
@@ -301,4 +302,16 @@ test('sparse ambient effects validate speed boundaries and reject unknown effect
     expect(() => parse({ ...theme, effects: { ambient, speed: 2.1 } })).toThrow();
   }
   expect(() => parse({ ...createThemeStarter(), effects: { ambient: 'unknown' } })).toThrow();
+});
+
+test('effect controls preserve author options and warn only for unsupported capabilities', () => {
+  const effects: ThemeEffects = { ambient: 'rain', density: 0.5, size: 1.5, palette: ['primary', 'warning'], direction: 'left' };
+  const parsed = parse({ ...createThemeStarter(), effects });
+  expect(parsed.effects).toEqual(effects);
+  expect(verifyManifest(parsed).filter(issue => issue.path.startsWith('effects.'))).toEqual([]);
+  for (const invalid of [{ density: 1.1 }, { size: 0.4 }, { palette: [] }, { palette: ['#ffffff'] }, { direction: 'diagonal' }]) {
+    expect(() => parse({ ...createThemeStarter(), effects: { ...effects, ...invalid } })).toThrow();
+  }
+  const staticTheme = parse({ ...createThemeStarter(), effects: { ambient: 'scanlines', speed: 1, direction: 'down' } });
+  expect(verifyManifest(staticTheme).filter(issue => issue.path.startsWith('effects.')).map(issue => issue.severity)).toEqual(['warning', 'warning']);
 });

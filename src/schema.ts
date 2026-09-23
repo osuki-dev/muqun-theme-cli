@@ -50,6 +50,10 @@ export const themeEffectsSchema = z.strictObject({
   ambient: z.enum(THEME_AMBIENT_EFFECTS).default('none'),
   intensity: z.number().min(0).max(1).optional(),
   speed: z.number().min(0).max(2).optional(),
+  density: z.number().min(0).max(1).optional(),
+  size: z.number().min(0.5).max(2).optional(),
+  palette: z.array(z.enum(['primary', 'text', 'textMuted', 'info', 'success', 'warning'])).min(1).max(4).optional(),
+  direction: z.enum(['up', 'down', 'left', 'right', 'up-left', 'up-right', 'down-left', 'down-right']).optional(),
 });
 export type ThemeEffects = z.infer<typeof themeEffectsSchema>;
 
