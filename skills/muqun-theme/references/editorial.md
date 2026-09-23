@@ -141,3 +141,12 @@ surfaces (gateway selector, scan and settings). Omitted or `true` preserves the
 theme surface color and configured surface opacity. `false` removes the button
 surface and its artwork without changing touch targets or icon colors. This is
 independent of the `header` preset; Cover themes must explicitly opt out.
+
+### Composer and creation icons
+
+`chrome.attach` replaces the shared attachment button in OpenCode, terminal and
+new-task composers. Its shape and active fill use the current appearance profile.
+`chrome.create` replaces the OpenCode header's new-session Plus glyph; it does not
+replace Stop while a response runs. Prefer a legible paperclip and plus silhouette.
+Both slots accept `template` (theme tint) or `original`; missing or broken assets
+fall back to native icons. Older Apps ignore the new name and keep their Plus.
