@@ -315,3 +315,11 @@ test('effect controls preserve author options and warn only for unsupported capa
   const staticTheme = parse({ ...createThemeStarter(), effects: { ambient: 'scanlines', speed: 1, direction: 'down' } });
   expect(verifyManifest(staticTheme).filter(issue => issue.path.startsWith('effects.')).map(issue => issue.severity)).toEqual(['warning', 'warning']);
 });
+
+
+test('icon direction metadata survives parsing and rejects guessed direction names', () => {
+  const base = createThemeStarter();
+  expect(parseThemeManifest(JSON.stringify({ ...base, iconDirections: { 'home.arrow': 'right' } })).iconDirections)
+    .toEqual({ 'home.arrow': 'right' });
+  expect(() => parseThemeManifest(JSON.stringify({ ...base, iconDirections: { 'home.arrow': 'diagonal' } }))).toThrow();
+});
