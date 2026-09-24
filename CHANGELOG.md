@@ -1,5 +1,11 @@
 # @osuki-dev/muqun-theme
 
+## 2.3.1
+
+### Patch Changes
+
+- [#34](https://github.com/osuki-dev/muqun-theme-cli/pull/34) [`5faed09`](https://github.com/osuki-dev/muqun-theme-cli/commit/5faed09d7b0ff1d248c7e2c66437ff828ce38e64) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Support optional `iconDirections` metadata so one theme arrow can be rotated correctly for Home quick actions and the Gateway picker. Authors declare the direction actually drawn into the image; older Apps ignore this metadata and keep their existing icon behavior.
+
 ## 2.3.0
 
 ### Minor Changes
