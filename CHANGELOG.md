@@ -1,5 +1,11 @@
 # @osuki-dev/muqun-theme
 
+## 2.4.1
+
+### Patch Changes
+
+- [#38](https://github.com/osuki-dev/muqun-theme-cli/pull/38) [`0dd655c`](https://github.com/osuki-dev/muqun-theme-cli/commit/0dd655c57a7a9aa0f9c501cb84f2a5b4dcdf00e4) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Publish gallery previews with a SHA-256 content digest in their filenames so updated artwork receives a fresh image-cache address. Identical preview bytes retain the same address across unrelated theme changes. Rebuild the catalogue with this CLI to adopt the new paths; no theme version or artwork changes are required. Published mirrors should retain older preview objects for readers holding earlier catalogues.
+
 ## 2.4.0
 
 ### Minor Changes
