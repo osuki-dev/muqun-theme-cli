@@ -1,5 +1,25 @@
 # @osuki-dev/muqun-theme
 
+## 2.4.0
+
+### Minor Changes
+
+- [#36](https://github.com/osuki-dev/muqun-theme-cli/pull/36) [`245cc6e`](https://github.com/osuki-dev/muqun-theme-cli/commit/245cc6e7eeeb46a64ef2dbd190058e5c97b8eeed) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Recognize the optional `chrome.parameters` theme icon for the Home composer task-options control. Include its independent placeholder in new theme scaffolds and document native sliders fallback for existing themes.
+
+- [#36](https://github.com/osuki-dev/muqun-theme-cli/pull/36) [`245cc6e`](https://github.com/osuki-dev/muqun-theme-cli/commit/245cc6e7eeeb46a64ef2dbd190058e5c97b8eeed) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Validate optional image outsets for Home composer background artwork: up to 12 dp on either side and 8 dp below. Outsets affect artwork only, with clipping preserved when omitted. Packs using this image property require a supporting App; older strict image schemas may reject it.
+
+- [#36](https://github.com/osuki-dev/muqun-theme-cli/pull/36) [`245cc6e`](https://github.com/osuki-dev/muqun-theme-cli/commit/245cc6e7eeeb46a64ef2dbd190058e5c97b8eeed) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Recognize the optional `home.composer.background` artwork slot for Home draft fields. Document responsive variants, authored opacity and clear text areas; include an authoring scaffold example. Existing themes remain valid without this slot.
+
+- [#36](https://github.com/osuki-dev/muqun-theme-cli/pull/36) [`245cc6e`](https://github.com/osuki-dev/muqun-theme-cli/commit/245cc6e7eeeb46a64ef2dbd190058e5c97b8eeed) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Recognize the optional Home composer decoration slot and document its bounded transparent overhang, responsive artwork, and safe text areas. Preserve the independent clipped input background slot.
+
+### Patch Changes
+
+- [#36](https://github.com/osuki-dev/muqun-theme-cli/pull/36) [`245cc6e`](https://github.com/osuki-dev/muqun-theme-cli/commit/245cc6e7eeeb46a64ef2dbd190058e5c97b8eeed) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Clarify that Home input base opacity follows theme and reader preferences independently of artwork strength. Document exact per-theme asset, responsive, layout, mode and fallback review coverage without conflating source checks with native evidence.
+
+- [#36](https://github.com/osuki-dev/muqun-theme-cli/pull/36) [`245cc6e`](https://github.com/osuki-dev/muqun-theme-cli/commit/245cc6e7eeeb46a64ef2dbd190058e5c97b8eeed) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Correct wallpaper and empty-artwork slot names in authoring instructions. Clarify full-scene composition without duplicate foreground subjects, and require gallery previews to show theme visuals rather than simulated App controls.
+
+- [#36](https://github.com/osuki-dev/muqun-theme-cli/pull/36) [`245cc6e`](https://github.com/osuki-dev/muqun-theme-cli/commit/245cc6e7eeeb46a64ef2dbd190058e5c97b8eeed) Thanks [@ryuhzk](https://github.com/ryuhzk)! - Install linked authoring references with the skill and report missing or stale references during checks. Correct wallpaper names and keep the Home composer contract consistent in the Editorial reference.
+
 ## 2.3.1
 
 ### Patch Changes
