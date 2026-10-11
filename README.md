@@ -812,7 +812,7 @@ and modes, with keyboard, long text, options and voice states. Verify the named
 `chrome.parameters` asset separately from `chrome.settings`, and the native sliders
 fallback when no usable parameters asset exists. Keep source validation and native
 evidence separate, identify exact pack versions, and mark untested combinations.
-Reviewing four packs does not verify the rest of the gallery.
+Limit coverage claims to the themes and combinations actually checked.
 
 `home.composer.decoration` is a separate optional layer for characters, hands or
 light effects extending above the Home input. Its full-field-width canvas is 64 dp
