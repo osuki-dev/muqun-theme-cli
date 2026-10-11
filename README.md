@@ -780,8 +780,14 @@ slot is safely optional.
 "icons": { "chrome.back": { "asset": "arrow", "render": "template" } }
 ```
 
-Known glyph names are `chrome.back` and `chrome.send`. `icons` is the one open
-part of the schema: an unknown name is ignored rather than failing the theme, so
+Known glyph names are `chrome.back`, `chrome.send`, `chrome.attach`, `chrome.create`,
+`chrome.scan`, `chrome.settings`, `chrome.parameters`, and `home.arrow`.
+`chrome.parameters` is the Home composer task-options control beside attachment,
+drawn at 18 dp. Give it a sliders/adjustments shape distinct from application
+settings. Missing, null, or unavailable artwork keeps the built-in sliders; the
+App never substitutes the `chrome.settings` asset. Existing themes remain valid.
+
+`icons` accepts open names: an unknown name is ignored rather than failing the theme, so
 an older app keeps its own glyph instead of refusing a newer pack outright. The
 cost is that a typo is silent at runtime, which is why `validate` reports unknown
 names as a warning.

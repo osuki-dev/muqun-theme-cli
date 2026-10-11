@@ -323,3 +323,23 @@ test('icon direction metadata survives parsing and rejects guessed direction nam
     .toEqual({ 'home.arrow': 'right' });
   expect(() => parseThemeManifest(JSON.stringify({ ...base, iconDirections: { 'home.arrow': 'diagonal' } }))).toThrow();
 });
+
+test('composer parameters is an optional independent icon role', () => {
+  const base = createThemeStarter();
+  const manifest = parse({
+    ...base,
+    assets: {
+      settings: { path: 'assets/settings.png' },
+      parameters: { path: 'assets/parameters.png' },
+    },
+    icons: {
+      'chrome.settings': { asset: 'settings', render: 'template' },
+      'chrome.parameters': { asset: 'parameters', render: 'template' },
+    },
+  });
+  expect(manifest.icons?.['chrome.parameters']?.asset).toBe('parameters');
+  expect(manifest.icons?.['chrome.settings']?.asset).toBe('settings');
+  expect(verifyManifest(manifest).filter((issue) => issue.path === 'icons.chrome.parameters')).toEqual([]);
+  expect(parse(base).icons?.['chrome.parameters']).toBeUndefined();
+  expect(parse({ ...base, icons: { 'chrome.parameters': null } }).icons?.['chrome.parameters']).toBeNull();
+});
