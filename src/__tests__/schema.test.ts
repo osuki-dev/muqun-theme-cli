@@ -343,3 +343,21 @@ test('composer parameters is an optional independent icon role', () => {
   expect(parse(base).icons?.['chrome.parameters']).toBeUndefined();
   expect(parse({ ...base, icons: { 'chrome.parameters': null } }).icons?.['chrome.parameters']).toBeNull();
 });
+
+test('Home composer artwork is known but optional, with no legacy slot migration', () => {
+  const raw = {
+    ...createThemeStarter(),
+    assets: { frame: { path: 'assets/frame.png' } },
+    decoration: {
+      'home.composer.background': {
+        asset: 'frame', fit: 'contain' as const, focalPoint: { x: 1, y: 0.5 },
+        compact: { asset: 'frame', opacity: 0.2 }, regular: null,
+      },
+    },
+  };
+  const manifest = parse(raw);
+  expect(manifest.decoration).toEqual(raw.decoration);
+  expect(verifyManifest(manifest, raw).filter((issue) => issue.path === 'decoration.home.composer.background')).toEqual([]);
+  expect(parse(createThemeStarter()).decoration?.['home.composer.background']).toBeUndefined();
+  expect(() => parse({ ...raw, assets: {} })).toThrow('Unknown asset');
+});

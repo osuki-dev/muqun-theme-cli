@@ -124,7 +124,7 @@ test('init warns that scaffolded artwork is still placeholder', () => {
   expect(result.code).toBe(0); // a warning, never a failure
   expect(result.stdout).toContain('placeholder');
   // The scaffold fills every slot and ships a placeholder preview cover.
-  expect(result.stdout).toContain('11/11 decoration slots filled');
+  expect(result.stdout).toContain('12/12 decoration slots filled');
   expect(result.stdout).not.toContain('no preview declared');
   expect(existsSync(join(dir, 'assets', 'preview.png'))).toBe(true);
 });
@@ -139,7 +139,7 @@ test('validate names the decoration slots a theme leaves unset', () => {
   writeFileSync(file, JSON.stringify(manifest));
   const result = run('validate', dir);
   expect(result.code).toBe(0);
-  expect(result.stdout).toContain('9/11 decoration slots filled');
+  expect(result.stdout).toContain('10/12 decoration slots filled');
   expect(result.stdout).toContain('unset: home.wallpaper, home.artwork');
 
   // The scaffold's preview image counts as used: the gallery draws it.
@@ -155,7 +155,7 @@ test('validate names the decoration slots a theme leaves unset', () => {
   run('init', '--colors-only', '--dir', palette);
   const plain = run('validate', palette);
   expect(plain.code).toBe(0);
-  expect(plain.stdout).toContain('0/11 decoration slots filled');
+  expect(plain.stdout).toContain('0/12 decoration slots filled');
   expect(plain.stdout).not.toContain('warning');
 });
 
@@ -908,7 +908,7 @@ test('check accepts a theme that declares the Home artwork, and still names a mi
   expect(sources.stdout).toContain('check ok');
   expect(sources.stdout).not.toContain('home.artwork');
   expect(sources.stdout).not.toContain('not a slot this build knows');
-  expect(runIn(repo, 'validate', 'hearth').stdout).toContain('11/11 decoration slots filled');
+  expect(runIn(repo, 'validate', 'hearth').stdout).toContain('12/12 decoration slots filled');
 
   // And the tolerance is still there for a name this build has not heard of: a
   // typo is a warning an author can act on, never a refusal.

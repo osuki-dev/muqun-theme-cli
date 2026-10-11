@@ -749,7 +749,7 @@ Artwork is placed by referencing an asset from a **decoration slot**:
 }
 ```
 
-The eleven slots:
+The twelve slots:
 
 | Slot | What it decorates |
 | ---- | ----------------- |
@@ -757,13 +757,26 @@ The eleven slots:
 | `home.background` | Overrides the wallpaper on Home. |
 | `home.artwork` | The single Home foreground, positioned by Classic or Editorial layout. |
 | `navigation.background` | The navigation bar. |
-| `composer.background` | The input composer. |
+| `composer.background` | Shared outer composer chrome. |
+| `home.composer.background` | Optional artwork inside the Home draft field on phone and Pad; independent of shared composer chrome. |
 | `actions.background` | The actions bar. |
 | `tabs.background` | The tab strip. |
 | `cards.decoration` | Cards. |
 | `buttons.primary.background` | Primary buttons. |
 | `emptyState.illustration` | Empty states. Use a square, `contain`-fit image. |
 | `launch.artwork` | Optional startup override; omission or null falls back to Home artwork, then branding. |
+
+`home.composer.background` is optional and has no fallback to `composer.background`.
+Omit it or set it to `null` for no additional field decoration. Light/dark and
+compact/regular overrides work as for other slots. The image is clipped to the
+field, behind the text and toolbar, and hidden during inline dictation. It adds
+no hit targets or height. A configured image uses the theme surface as its base;
+its opacity is capped to preserve text/control contrast. Older apps ignore the
+new slot. Existing themes do not need an empty entry. A transparent frame or
+edge character should leave the central text area clear; `contain` preserves its
+proportions, and separate compact/regular canvases adapt phone and Pad framing.
+Anything outside the field is clipped. Authored opacity is a maximum request,
+so a character may be muted by the contrast cap rather than drawn at full strength.
 
 Each slot takes `asset`, plus optional `fit` (`cover`, `contain`, `tile`),
 `opacity` (0..1), and `focalPoint` (`{x, y}`, each 0..1). It may also carry

@@ -109,6 +109,7 @@ export function createThemeScaffold(slug?: string): ThemeScaffold {
       'home.wallpaper': { asset: 'home-wallpaper', fit: 'cover' as const },
       'navigation.background': { asset: 'navigation', fit: 'cover' as const },
       'composer.background': { asset: 'composer', fit: 'cover' as const },
+      'home.composer.background': { asset: 'composer', fit: 'cover' as const, opacity: 0.12 },
       'actions.background': { asset: 'actions', fit: 'cover' as const },
       'tabs.background': { asset: 'tabs', fit: 'cover' as const },
       'cards.decoration': { asset: 'cards', fit: 'cover' as const, opacity: 0.4 },
