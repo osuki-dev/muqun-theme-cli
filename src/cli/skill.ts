@@ -1,4 +1,5 @@
 import SKILL from '../../skills/muqun-theme/SKILL.md' with { type: 'text' };
+import EDITORIAL from '../../skills/muqun-theme/references/editorial.md' with { type: 'text' };
 
 /**
  * The agent authoring skill, carried inside the executable.
@@ -10,6 +11,9 @@ import SKILL from '../../skills/muqun-theme/SKILL.md' with { type: 'text' };
  * behind the CLI that is checking it.
  */
 export const SKILL_TEXT: string = SKILL;
+export const SKILL_REFERENCES: Readonly<Record<string, string>> = {
+  'references/editorial.md': EDITORIAL,
+};
 
 /** The `version:` field of the skill's front matter, or "unknown". */
 export const skillVersion = (): string =>

@@ -552,7 +552,14 @@ test('skill prints the vendored skill byte for byte, writes it, and check notice
   const wrote = runIn(repo, 'skill', '--out', 'skills/muqun-theme/SKILL.md');
   expect(wrote.code).toBe(0);
   expect(readFileSync(join(repo, 'skills', 'muqun-theme', 'SKILL.md'), 'utf8')).toBe(expected);
+  const reference = join(repo, 'skills', 'muqun-theme', 'references', 'editorial.md');
+  const referenceSource = readFileSync(new URL('../../skills/muqun-theme/references/editorial.md', import.meta.url), 'utf8');
+  expect(readFileSync(reference, 'utf8')).toBe(referenceSource);
   expect(runIn(repo, 'check').stdout).toContain('matches this CLI');
+  rmSync(reference);
+  expect(runIn(repo, 'check').stdout).toContain('references/editorial.md is missing or differs');
+  expect(runIn(repo, 'skill', '--out', 'skills/muqun-theme/SKILL.md').code).toBe(0);
+  expect(readFileSync(reference, 'utf8')).toBe(referenceSource);
 
   // Drift is a warning: it misinforms an agent, but it breaks no theme.
   writeFileSync(join(repo, 'skills', 'muqun-theme', 'SKILL.md'), expected + '\nlocal edit\n');
