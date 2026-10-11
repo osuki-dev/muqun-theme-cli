@@ -786,6 +786,11 @@ attachment/parameters controls and bottom-right send control clear. Check actual
 phone and Pad previews in both color modes, including a long multiline draft;
 arbitrary images are not automatically made readable.
 
+The input base fill follows `variants.<mode>.surfaces.backgroundOpacity` (default 1)
+and the reader's saved Interface background opacity override. It is independent of
+the artwork opacity. Keep image centers transparent instead of baking an opaque plate
+into artwork; do not change the theme's base opacity solely to strengthen the decoration.
+
 The image in `home.composer.background` may opt into a bounded `outset` in dp:
 `{"left": 12, "right": 12, "bottom": 8}`. Left/right accept 0..12, bottom 0..8;
 there is no top property. Each edge is optional and defaults to zero. Omission,
@@ -799,6 +804,15 @@ Other slots accept but ignore this property, including `home.composer.decoration
 Keep text and controls clear and inspect phone/Pad with keyboard and voice active.
 Older strict image schemas may reject `outset`; use an App and CLI with this feature
 and verify a supporting release before choosing `minAppVersion`.
+
+When reviewing a changed theme, record the resolved background, outset and decoration
+for light/dark and compact/regular. These slots serve both Classic and Editorial;
+there is no theme layout selector. Check actual phone/Pad screenshots in both layouts
+and modes, with keyboard, long text, options and voice states. Verify the named
+`chrome.parameters` asset separately from `chrome.settings`, and the native sliders
+fallback when no usable parameters asset exists. Keep source validation and native
+evidence separate, identify exact pack versions, and mark untested combinations.
+Reviewing four packs does not verify the rest of the gallery.
 
 `home.composer.decoration` is a separate optional layer for characters, hands or
 light effects extending above the Home input. Its full-field-width canvas is 64 dp
