@@ -910,7 +910,7 @@ export const list = (options: ListOptions): Effect.Effect<Outcome, CommandError,
  * cannot describe anything that is not there. A source that will not pack
  * fails the build before the index is touched. Each theme that declares a
  * `preview` also gets that image copied out of its package into
- * `dist/previews/<id>.<ext>`, where a gallery can fetch it on its own.
+ * `dist/previews/<id>-<sha256>.<ext>`, where a gallery can fetch it on its own.
  *
  * Incremental by default. When the previous build is present -- `dist/` and
  * an `index.json` carrying source digests -- a source whose digest has not
