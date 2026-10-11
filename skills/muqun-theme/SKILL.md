@@ -72,12 +72,15 @@ If supplying SHA-256, compute it from the actual file bytes.
   Omission or null draws no extra field decoration; it never falls back to composer.background.
   Use light/dark and compact/regular overrides where needed. Artwork is clipped to the input
   border radius, behind text and toolbar, and hidden during inline voice-to-text. It has no
-  layout or touch footprint. Its theme-surface base and contrast-limited opacity preserve
-  readability. Prefer quiet textures; do not repeat the hero illustration behind draft text.
+  layout or touch footprint and leaves the existing field fill intact. Explicit opacity
+  0..1 is respected; omission defaults to 0.18. Unlike generic surface artwork, this
+  opt-in slot is not contrast-clamped. Prefer quiet textures or deliberate edge characters.
   A border or character can use a transparent wide canvas with a clear central text area;
   use fit contain to preserve proportions, and separate compact/regular assets for phones
-  and Pad. Artwork outside the field is clipped. Opacity is an upper request, not a promise
-  of full-strength character art: the app may lower it to protect legibility.
+  and Pad. Artwork outside the field is clipped. Leave transparent space for central draft
+  text, bottom-left attachment/parameter controls and the bottom-right send button. Check
+  actual phone/Pad previews in light/dark mode with long multiline text. Arbitrary images
+  are not automatically made readable; authors own those clear areas and contrast.
   Older apps ignore the new slot. Existing themes need no empty slot or migration.
 - homeIdentity.artwork is the Home default switch: omitted/default shows declared artwork;
   hidden turns it off by default. Do not repeat its subject in home.background.

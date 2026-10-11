@@ -770,13 +770,16 @@ The twelve slots:
 Omit it or set it to `null` for no additional field decoration. Light/dark and
 compact/regular overrides work as for other slots. The image is clipped to the
 field, behind the text and toolbar, and hidden during inline dictation. It adds
-no hit targets or height. A configured image uses the theme surface as its base;
-its opacity is capped to preserve text/control contrast. Older apps ignore the
+no hit targets or height. It preserves the field's existing base fill. An explicit
+opacity from 0 to 1 is respected; an omitted opacity defaults to 0.18. This
+opt-in slot does not use the generic surface artwork contrast cap. Older apps ignore the
 new slot. Existing themes do not need an empty entry. A transparent frame or
 edge character should leave the central text area clear; `contain` preserves its
 proportions, and separate compact/regular canvases adapt phone and Pad framing.
-Anything outside the field is clipped. Authored opacity is a maximum request,
-so a character may be muted by the contrast cap rather than drawn at full strength.
+Anything outside the field is clipped. Keep the central draft area, bottom-left
+attachment/parameters controls and bottom-right send control clear. Check actual
+phone and Pad previews in both color modes, including a long multiline draft;
+arbitrary images are not automatically made readable.
 
 Each slot takes `asset`, plus optional `fit` (`cover`, `contain`, `tile`),
 `opacity` (0..1), and `focalPoint` (`{x, y}`, each 0..1). It may also carry
