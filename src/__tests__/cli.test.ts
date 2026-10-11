@@ -796,19 +796,42 @@ test('build publishes a declared preview beside the package, the index names it,
   // named by what the bytes are, not by what the source file was called.
   const built = runIn(repo, 'build');
   expect(built.code).toBe(0);
-  expect(built.stdout).toContain('preview dist/previews/voyage.webp');
-  expect(built.stdout).toContain('1 preview(s)');
-  const previewFile = join(repo, 'dist', 'previews', 'voyage.webp');
-  expect(existsSync(previewFile)).toBe(true);
   const packed = unpackTheme(readFileSync(join(repo, 'dist', 'voyage.muqun-theme')));
+  const previewPath = `dist/previews/voyage-${sha256(packed.assets['wallpaper-light'])}.webp`;
+  expect(built.stdout).toContain(`preview ${previewPath}`);
+  expect(built.stdout).toContain('1 preview(s)');
+  const previewFile = join(repo, previewPath);
+  expect(existsSync(previewFile)).toBe(true);
   expect(sha256(readFileSync(previewFile))).toBe(sha256(packed.assets['wallpaper-light']));
   expect(readFileSync(previewFile).subarray(8, 12).toString()).toBe('WEBP');
   expect(existsSync(join(repo, 'dist', 'previews', 'plain.webp'))).toBe(false);
 
   const [plain, voyage] = JSON.parse(readFileSync(join(repo, 'index.json'), 'utf8')).themes;
-  expect(voyage).toMatchObject({ id: 'voyage', preview: 'dist/previews/voyage.webp' });
+  expect(voyage).toMatchObject({ id: 'voyage', preview: previewPath });
   expect(plain.id).toBe('plain');
   expect(plain).not.toHaveProperty('preview');
+
+  // An unchanged source from the old CLI must migrate its catalogue without
+  // repacking: the package digest and version stay intact, only the URL changes.
+  const indexFile = join(repo, 'index.json');
+  const currentIndex = readFileSync(indexFile, 'utf8');
+  const legacyIndex = JSON.parse(currentIndex);
+  legacyIndex.themes[1].preview = 'dist/previews/voyage.webp';
+  writeFileSync(indexFile, JSON.stringify(legacyIndex));
+  writeFileSync(join(repo, 'dist', 'previews', 'voyage.webp'), readFileSync(previewFile));
+  rmSync(previewFile);
+  const packageBefore = sha256(readFileSync(join(repo, 'dist', 'voyage.muqun-theme')));
+  const migrated = runIn(repo, 'build');
+  expect(migrated.code).toBe(0);
+  expect(migrated.stdout).toContain('kept dist/voyage.muqun-theme');
+  expect(migrated.stdout).toContain(`preview ${previewPath}`);
+  expect(sha256(readFileSync(join(repo, 'dist', 'voyage.muqun-theme')))).toBe(packageBefore);
+  expect(readFileSync(indexFile, 'utf8')).toBe(currentIndex);
+  expect(existsSync(previewFile)).toBe(true);
+  const repeated = runIn(repo, 'build');
+  expect(repeated.code).toBe(0);
+  expect(repeated.stdout).not.toContain('preview dist/previews/');
+  expect(readFileSync(indexFile, 'utf8')).toBe(currentIndex);
 
   const agreed = runIn(repo, 'check');
   expect(agreed.code).toBe(0);
@@ -818,7 +841,7 @@ test('build publishes a declared preview beside the package, the index names it,
   // Read from a local file the entry carries the path; read from a URL it
   // carries the URL, derived the way the package URL is.
   const local = JSON.parse(runIn(repo, 'list', '--from', 'index.json', '--json').stdout);
-  expect(local.entries[1].preview).toBe('dist/previews/voyage.webp');
+  expect(local.entries[1].preview).toBe(previewPath);
   expect(local.entries[1]).not.toHaveProperty('previewUrl');
   const server = Bun.serve({
     hostname: '127.0.0.1',
@@ -840,7 +863,7 @@ test('build publishes a declared preview beside the package, the index names it,
     expect(entries[1]).toMatchObject({
       id: 'voyage',
       url: `${base}dist/voyage.muqun-theme`,
-      previewUrl: `${base}dist/previews/voyage.webp`,
+      previewUrl: `${base}${previewPath}`,
     });
     expect(entries[0]).not.toHaveProperty('previewUrl');
     // The URL fetches the file the index named.
@@ -857,18 +880,18 @@ test('build publishes a declared preview beside the package, the index names it,
   writeFileSync(join(repo, 'dist', 'previews', 'stray.png'), Buffer.from('not a theme'));
   const stale = runIn(repo, 'check');
   expect(stale.code).toBe(1);
-  expect(stale.stdout).toContain('dist/previews/voyage.webp is missing -- run: muqun-theme build');
+  expect(stale.stdout).toContain(`${previewPath} is missing -- run: muqun-theme build`);
   expect(stale.stdout).toContain('dist/previews/stray.png belongs to no packed theme with a preview -- run: muqun-theme build');
   writeFileSync(previewFile, Buffer.from('not the image'));
   const tampered = runIn(repo, 'check');
   expect(tampered.code).toBe(1);
-  expect(tampered.stdout).toContain('dist/previews/voyage.webp is not the preview inside dist/voyage.muqun-theme');
+  expect(tampered.stdout).toContain(`${previewPath} is not the preview inside dist/voyage.muqun-theme`);
 
   // build heals both without repacking anything.
   const healed = runIn(repo, 'build');
   expect(healed.code).toBe(0);
   expect(healed.stdout).toContain('kept dist/voyage.muqun-theme');
-  expect(healed.stdout).toContain('preview dist/previews/voyage.webp');
+  expect(healed.stdout).toContain(`preview ${previewPath}`);
   expect(healed.stdout).toContain('removed dist/previews/stray.png');
   expect(existsSync(join(repo, 'dist', 'previews', 'stray.png'))).toBe(false);
   expect(sha256(readFileSync(previewFile))).toBe(sha256(packed.assets['wallpaper-light']));
@@ -879,7 +902,7 @@ test('build publishes a declared preview beside the package, the index names it,
   writeFileSync(manifestFile, JSON.stringify(manifest));
   const dropped = runIn(repo, 'build');
   expect(dropped.code).toBe(0);
-  expect(dropped.stdout).toContain('removed dist/previews/voyage.webp');
+  expect(dropped.stdout).toContain(`removed ${previewPath}`);
   expect(dropped.stdout).not.toContain('preview(s)');
   expect(existsSync(previewFile)).toBe(false);
   const after = JSON.parse(readFileSync(join(repo, 'index.json'), 'utf8')).themes;

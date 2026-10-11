@@ -34,10 +34,10 @@ bun -e 'const f = "src/grand-voyage/theme.json"; const m = JSON.parse(await Bun.
 bun "$CLI" build
 bun "$CLI" check
 bun "$CLI" list --from index.json
-bun "$CLI" list --from index.json --search voyage --json | grep -q '"preview": "dist/previews/grand-voyage.webp"'
+bun "$CLI" list --from index.json --search voyage --json | grep -Eq '"preview": "dist/previews/grand-voyage-[a-f0-9]{64}\.webp"'
 test -f src/grand-voyage/theme.json
 test -f dist/grand-voyage.muqun-theme
-test -f dist/previews/grand-voyage.webp
+bun -e 'const index = await Bun.file("index.json").json(); if (!(await Bun.file(index.themes[0].preview).exists())) process.exit(1)'
 test -f index.json
 
 # preview runs until told to stop, so it goes in the background on a port

@@ -55,7 +55,7 @@ export type IndexEntry = {
   readonly assets: number;
   /**
    * Repository-relative path of the theme's preview image, e.g.
-   * `dist/previews/grand-voyage.webp`: the asset the manifest names as
+   * `dist/previews/grand-voyage-<sha256>.webp`: the asset the manifest names as
    * `preview`, published beside the package so a gallery can show it without
    * downloading the package. Absent when the manifest declares none.
    */
@@ -108,20 +108,22 @@ export type ThemesIndex = {
 const PACKAGE_SUFFIX = '.muqun-theme';
 
 /**
- * Where preview images are published: `dist/previews/<id>.<ext>`.
+ * Where preview images are published: `dist/previews/<id>-<sha256>.<ext>`.
  *
  * A theme's `preview` is one of its own assets, so a gallery could always get
  * it by downloading the package -- megabytes of artwork to show one card. The
  * image is copied out beside the package instead, as the bytes the package
  * holds (already optimised by `pack`), under an extension that says what the
  * bytes are rather than what the source file was called. The directory
- * mirrors the index: `build` writes it, `check` holds it current.
+ * mirrors the index: `build` writes it, `check` holds it current. The digest
+ * covers the published image bytes, so changed artwork gets a new cache key
+ * without changing the URL for unrelated theme edits.
  */
 export const PREVIEWS_DIR = 'previews';
 
 export type PackagePreview = {
   readonly id: string;
-  /** The file name under `dist/previews/`, e.g. `grand-voyage.webp`. */
+  /** The file name under `dist/previews/`, e.g. `grand-voyage-<sha256>.webp`. */
   readonly file: string;
   readonly bytes: Uint8Array;
 };
@@ -144,7 +146,7 @@ export const packagePreview = (
   if (!bytes) return undefined;
   try {
     const { format } = inspectThemeImage(bytes);
-    return { id: manifest.id, file: `${manifest.id}.${PREVIEW_EXTENSION[format]}`, bytes };
+    return { id: manifest.id, file: `${manifest.id}-${sha256(bytes)}.${PREVIEW_EXTENSION[format]}`, bytes };
   } catch {
     return undefined;
   }

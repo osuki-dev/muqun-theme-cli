@@ -454,7 +454,7 @@ A themes repository is a directory holding `src/` and `dist/`:
 ```
 src/<id>/theme.json         a theme as it is authored, beside its assets/
 dist/<id>.muqun-theme       the same theme, packed
-dist/previews/<id>.webp     its preview image, when the manifest declares one, generated
+dist/previews/<id>-<sha256>.webp     its preview image, when the manifest declares one, generated
 index.json                  the catalogue of everything in dist/, generated
 ```
 
@@ -508,7 +508,7 @@ It fails, with exit code `1` and a line saying what to run, when:
 - a package's `version` is not its source's, which is how "edited but not
   repacked" is caught;
 - `index.json` is missing or is not what `dist/` would generate;
-- a theme whose manifest declares a `preview` has no `dist/previews/<id>.<ext>`,
+- a theme whose manifest declares a `preview` has no `dist/previews/<id>-<sha256>.<ext>`,
   or has one that is not byte for byte the image inside its package, or
   `dist/previews/` holds a file no packed theme accounts for. The fix is
   `muqun-theme build`, which is what regenerates that directory.
@@ -535,7 +535,7 @@ src/grand-voyage
   …
   packed dist/grand-voyage.muqun-theme  3.93 MiB  10 asset(s)
   removed dist/old-theme.muqun-theme: it has no source
-  preview dist/previews/grand-voyage.webp  286.0 KiB
+  preview dist/previews/grand-voyage-<sha256>.webp  286.0 KiB
 
 built 1 theme(s) into dist/ and index.json, 1 preview(s)
 ```
@@ -549,10 +549,19 @@ never needs to.
 **A declared preview is published on its own.** A manifest's `preview` names
 one of the theme's assets as the picture a gallery shows for it. Rather than
 make the gallery download megabytes of artwork for one card, `build` copies
-that image out of the package into `dist/previews/<id>.<ext>` — the bytes as
+that image out of the package into `dist/previews/<id>-<sha256>.<ext>` — the bytes as
 packed, so the optimised WebP rather than the PNG it was drawn as, under an
 extension (`webp`, `png` or `jpg`) chosen by inspecting the bytes rather than
-by trusting the file name. The directory mirrors the index exactly: a theme
+by trusting the file name. The filename includes the full SHA-256 of those
+published image bytes. Changed artwork gets a fresh cache address; identical
+artwork keeps its address even when other theme metadata changes. Existing
+catalogue readers accept these plain relative image paths without a format change.
+Rebuild the catalogue to migrate; theme versions and artwork need no changes.
+Upload previews before the new index, and retain older objects on published
+mirrors for readers that still hold an earlier catalogue. No query-string cache
+busting or client-cache clearing is needed.
+
+The local directory mirrors the index exactly: a theme
 that stops declaring a preview, or whose source is gone, loses its file, and a
 file nothing accounts for is removed. Only `build` writes it; `pack` and
 `index` do not, and `check` reports a `dist/previews/` that has fallen behind.
@@ -593,7 +602,7 @@ sorted by id, with the metadata a reader wants before downloading anything.
       "author": "…", "license": "…", "description": "…", "tags": ["…"],  // when the manifest has them
       "package": "dist/grand-voyage.muqun-theme",
       "bytes": 4123456, "sha256": "…", "assets": 10,
-      "preview": "dist/previews/grand-voyage.webp",  // when the manifest declares a preview
+      "preview": "dist/previews/grand-voyage-<sha256>.webp",  // when the manifest declares a preview
       "sourceDigest": "…"       // what build compares to skip an unchanged source
     }
   ]
