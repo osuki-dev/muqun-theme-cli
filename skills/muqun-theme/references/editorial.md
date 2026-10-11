@@ -36,7 +36,7 @@ The current schema gives an author these Home-facing roles:
 
 | Slot or field | Use | Authoring guidance |
 | --- | --- | --- |
-| `decoration["home.background"]` | Home wallpaper | Keep it quiet enough for native text and controls. It can inherit from `shell.background` when the app resolves the slot. |
+| `decoration["home.wallpaper"]` | Home wallpaper | Keep it quiet enough for native text and controls. It can inherit from `shell.wallpaper` when the app resolves the slot. |
 | `decoration["home.artwork"]` | Single foreground in both layouts | Use transparent, wordless artwork and width-specific crops. |
 | `decoration["launch.artwork"]` | Optional startup override | Omission or null falls back to Home artwork, then branding. |
 | `homeIdentity.name` and `homeIdentity.logo` | Home identity | Independent custom/default/hidden choices. |
@@ -44,6 +44,9 @@ The current schema gives an author these Home-facing roles:
 
 Both layouts draw at most one foreground. Do not repeat the subject in the wallpaper.
 Layout owns placement; the theme supplies fit, focal point, asset and opacity.
+When a full wallpaper scene already contains the character, omit or disable the
+repeated foreground cutout. The gallery preview contains only theme art and colors,
+not a simulated Home screen, New session cards, input fields or toolbar controls.
 
 For a custom theme, omitting `homeIdentity.name` or `.logo` hides that part of
 the identity. `mode: "default"` explicitly restores Muqun's mark or name, and
@@ -106,7 +109,7 @@ Older apps ignore the optional names; no schema version bump is needed.
 
 1. Declare only the existing slots and `homeIdentity` fields in the manifest.
 2. Test the light and dark artwork against both palettes, including native
-   text over `home.background`.
+   text over `home.wallpaper`.
 3. Test a narrow/compact device and a wider/regular device. Check that an
    explicit `null` override really removes the image where intended.
 4. Read the Home with the artwork hidden or unavailable and with a long identity
@@ -123,7 +126,7 @@ composition. Omitted or `standard` keeps the standard header. This is not a
 third Home layout. Classic ignores the hint. `homeIdentity.name` supplies the
 large title and retains its existing visibility semantics; never bake working
 controls into an image. `home.artwork` supplies the transparent foreground,
-with `home.background` supplying quiet paper/scenery underneath. No custom
+with `home.wallpaper` supplying quiet paper/scenery underneath. No custom
 button coordinates are accepted. Use a focal point when cover-fitting a tall
 character. On compact widths, work actions overlap only the lower cover edge;
 on widths of at least 752 dp and regular font scale, the cover occupies 45%
@@ -150,3 +153,25 @@ new-task composers. Its shape and active fill use the current appearance profile
 replace Stop while a response runs. Prefer a legible paperclip and plus silhouette.
 Both slots accept `template` (theme tint) or `original`; missing or broken assets
 fall back to native icons. Older Apps ignore the new name and keep their Plus.
+
+`chrome.parameters` independently replaces Home's options sliders beside attachment;
+it never reuses `chrome.settings`. Missing, null or unusable artwork keeps the native
+sliders. Both Home layouts share this control and its regular touch target.
+
+### Home input artwork
+
+`home.composer.background` is the optional artwork behind draft text and toolbar.
+Its image opacity is separate from the field fill, which follows the theme's
+per-mode surfaces.backgroundOpacity and the reader's saved interface-opacity override.
+The image normally clips to the input. Optional image `outset` permits left/right
+0..12 dp and bottom 0..8 dp, with omitted edges zero and no top property. This only
+extends decorative artwork into existing margins, never text, touch/accessibility
+targets, field height or voice overlay. Compact/regular images fully replace the base,
+including outset. Other slots accept but ignore outset. Older strict image schemas
+may reject it, so verify a supporting App/CLI release before setting minAppVersion.
+
+`home.composer.decoration` is the separate noninteractive transparent layer 48 dp
+above the rim and 16 dp inside; outset does not change it. Both artwork layers hide
+during voice-to-text. Missing/null artwork paints nothing. Keep the middle and controls
+clear and record each exact pack's light/dark × phone/Pad × Classic/Editorial evidence.
+Source validation and screenshots prove different things; mark native gaps explicitly.

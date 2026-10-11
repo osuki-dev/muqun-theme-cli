@@ -323,3 +323,88 @@ test('icon direction metadata survives parsing and rejects guessed direction nam
     .toEqual({ 'home.arrow': 'right' });
   expect(() => parseThemeManifest(JSON.stringify({ ...base, iconDirections: { 'home.arrow': 'diagonal' } }))).toThrow();
 });
+
+test('composer parameters is an optional independent icon role', () => {
+  const base = createThemeStarter();
+  const manifest = parse({
+    ...base,
+    assets: {
+      settings: { path: 'assets/settings.png' },
+      parameters: { path: 'assets/parameters.png' },
+    },
+    icons: {
+      'chrome.settings': { asset: 'settings', render: 'template' },
+      'chrome.parameters': { asset: 'parameters', render: 'template' },
+    },
+  });
+  expect(manifest.icons?.['chrome.parameters']?.asset).toBe('parameters');
+  expect(manifest.icons?.['chrome.settings']?.asset).toBe('settings');
+  expect(verifyManifest(manifest).filter((issue) => issue.path === 'icons.chrome.parameters')).toEqual([]);
+  expect(parse(base).icons?.['chrome.parameters']).toBeUndefined();
+  expect(parse({ ...base, icons: { 'chrome.parameters': null } }).icons?.['chrome.parameters']).toBeNull();
+});
+
+test.each(['home.composer.background', 'home.composer.decoration'] as const)(
+  '%s is known but optional, with no legacy slot migration', (slot) => {
+  const raw = {
+    ...createThemeStarter(),
+    assets: { frame: { path: 'assets/frame.png' } },
+    decoration: {
+      [slot]: {
+        asset: 'frame', fit: 'contain' as const, focalPoint: { x: 1, y: 0.5 },
+        compact: { asset: 'frame', opacity: 0.2 }, regular: null,
+      },
+    },
+  };
+  const manifest = parse(raw);
+  expect(manifest.decoration).toEqual(raw.decoration);
+  expect(verifyManifest(manifest, raw).filter((issue) => issue.path === `decoration.${slot}`)).toEqual([]);
+  expect(parse(createThemeStarter()).decoration?.[slot]).toBeUndefined();
+  expect(() => parse({ ...raw, assets: {} })).toThrow('Unknown asset');
+});
+
+test('bounded image outsets survive mode/device overrides without adding defaults', () => {
+  const raw = {
+    ...createThemeStarter(),
+    assets: { frame: { path: 'assets/frame.png' } },
+    decoration: {
+      'home.composer.background': {
+        asset: 'frame', outset: { left: 12, right: 12, bottom: 8 },
+        compact: { asset: 'frame', outset: { right: 0.5 } },
+        regular: { asset: 'frame' },
+      },
+      // Accepted uniformly; only the Home field renderer consumes outset.
+      'home.composer.decoration': { asset: 'frame', outset: {} },
+      'shell.wallpaper': { asset: 'frame', outset: { left: 0 } },
+    },
+    variantDecorations: {
+      dark: { 'home.composer.background': { asset: 'frame', outset: { bottom: 0 } } },
+    },
+  };
+  const parsed = parse(raw);
+  expect(parsed.decoration).toEqual(raw.decoration);
+  expect(parsed.variantDecorations).toEqual(raw.variantDecorations);
+  expect(parsed.decoration?.['home.composer.background']?.regular?.outset).toBeUndefined();
+});
+
+test('image outset validates every edge and rejects unsupported properties at every level', () => {
+  const invalid = [
+    { left: -0.01 }, { left: 12.01 }, { right: -1 }, { right: 13 },
+    { bottom: -1 }, { bottom: 8.01 }, { top: 1 }, { left: '2' },
+    { left: null }, { right: Infinity }, null, [],
+  ];
+  for (const outset of invalid) {
+    const image = { asset: 'frame', outset };
+    for (const declaration of [
+      { decoration: { 'home.composer.background': image } },
+      { decoration: { 'home.composer.background': { asset: 'frame', compact: image } } },
+      { decoration: { 'home.composer.background': { asset: 'frame', regular: image } } },
+      { variantDecorations: { dark: { 'home.composer.background': image } } },
+    ]) {
+      expect(() => parse({
+        ...createThemeStarter(), assets: { frame: { path: 'assets/frame.png' } },
+        ...declaration,
+      })).toThrow();
+    }
+  }
+});

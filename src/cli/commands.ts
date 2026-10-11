@@ -40,7 +40,7 @@ import {
   resolveThemeDir,
   sourceDirFor,
 } from './repo.js';
-import { SKILL_TEXT, skillVersion } from './skill.js';
+import { SKILL_REFERENCES, SKILL_TEXT, skillVersion } from './skill.js';
 import {
   DEFAULT_API,
   INDEX_FILE,
@@ -628,6 +628,15 @@ export const check = (
           `  ${yellow('warning')} differs from the skill this CLI carries (v${skillVersion()})` +
             dim(` -- run: muqun-theme skill --out ${SKILL_PATH}`)
         );
+      for (const [relative, expected] of Object.entries(SKILL_REFERENCES)) {
+        const reference = path.join(path.dirname(skillFile), relative);
+        const actual = yield* fs.readFileString(reference).pipe(Effect.orElseSucceed(() => ''));
+        if (actual !== expected)
+          yield* out(
+            `  ${yellow('warning')} ${relative} is missing or differs from this CLI` +
+              dim(` -- run: muqun-theme skill --out ${SKILL_PATH}`)
+          );
+      }
     }
 
     const sourceIds = yield* listSources(repo);
@@ -775,6 +784,9 @@ export const skill = (outFile?: string): Effect.Effect<Outcome, CommandError, En
       return ok;
     }
     yield* writeText(outFile, SKILL_TEXT);
+    const path = yield* Path.Path;
+    for (const [relative, contents] of Object.entries(SKILL_REFERENCES))
+      yield* writeText(path.join(path.dirname(outFile), relative), contents);
     yield* out(`${green('wrote')} ${outFile} ${dim(`(skill v${skillVersion()})`)}`);
     return ok;
   });

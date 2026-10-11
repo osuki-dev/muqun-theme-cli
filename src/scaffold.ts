@@ -56,6 +56,7 @@ const PLACEHOLDERS: readonly Placeholder[] = [
   { id: 'home-artwork', file: 'home-artwork.png', width: 512, height: 512, tint: light('primary') },
   { id: 'icon-scan', file: 'icon-scan.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-settings', file: 'icon-settings.png', width: 96, height: 96, tint: light('text') },
+  { id: 'icon-parameters', file: 'icon-parameters.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-arrow', file: 'icon-arrow.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-back', file: 'icon-back.png', width: 96, height: 96, tint: light('text') },
   { id: 'icon-send', file: 'icon-send.png', width: 96, height: 96, tint: light('text') },
@@ -103,11 +104,13 @@ export function createThemeScaffold(slug?: string): ThemeScaffold {
     preview: 'preview',
 
     // Shared across both modes. A slot omitted here inherits nothing and simply
-    // draws no artwork, so every slot the schema has is present and wired.
+    // draws no artwork. The optional overhanging Home decoration needs authored
+    // transparent artwork and is deliberately omitted from this generic scaffold.
     decoration: {
       'home.wallpaper': { asset: 'home-wallpaper', fit: 'cover' as const },
       'navigation.background': { asset: 'navigation', fit: 'cover' as const },
       'composer.background': { asset: 'composer', fit: 'cover' as const },
+      'home.composer.background': { asset: 'composer', fit: 'cover' as const, opacity: 0.12 },
       'actions.background': { asset: 'actions', fit: 'cover' as const },
       'tabs.background': { asset: 'tabs', fit: 'cover' as const },
       'cards.decoration': { asset: 'cards', fit: 'cover' as const, opacity: 0.4 },
@@ -132,6 +135,7 @@ export function createThemeScaffold(slug?: string): ThemeScaffold {
     icons: {
       'chrome.scan': { asset: 'icon-scan', render: 'template' as const },
       'chrome.settings': { asset: 'icon-settings', render: 'template' as const },
+      'chrome.parameters': { asset: 'icon-parameters', render: 'template' as const },
       'home.arrow': { asset: 'icon-arrow', render: 'template' as const },
       'chrome.back': { asset: 'icon-back', render: 'template' as const },
       'chrome.send': { asset: 'icon-send', render: 'template' as const },

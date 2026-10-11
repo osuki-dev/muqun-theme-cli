@@ -121,7 +121,11 @@ assets/logo.png             assets/preview.png
 `preview.png` is the gallery cover, 1024×640: the light look on the left half,
 the dark on the right. It is what the website and the app show before anyone
 downloads the pack, and the themes repository will not list a theme without
-one.
+one. Show only the theme artwork, surfaces and colors in this image. Do not bake
+a simulated Home screen, session list, "New session" cards, input fields, toolbar
+icons or other app controls into the gallery cover. Actual App screenshots are
+separate QA evidence; the interactive `preview` command still shows the live theme
+in context.
 
 The point is that the format is **discoverable by deletion**. Every section the
 schema supports is already there, so you find out that per-mode wallpaper, a
@@ -220,7 +224,7 @@ and that is a guard against a decode bomb rather than advice. The number you can
 act on is different: an image is decoded to `width × height × 4` bytes and held
 for as long as its slot is on screen, so a 1254×1254 drawing behind a 44pt
 navigation bar costs 6.3 MB to show a strip it could have filled at a twentieth
-of that. Full-screen artwork (`shell.background`) gets a phone-at-3× budget of
+of that. Full-screen artwork (`shell.wallpaper`) gets a phone-at-3× budget of
 3000px; every other slot is chrome, and 1024px on the longest edge is already
 generous.
 
@@ -745,28 +749,95 @@ Artwork is placed by referencing an asset from a **decoration slot**:
 
 ```jsonc
 "decoration": {
-  "shell.background": { "asset": "paper", "fit": "cover", "opacity": 0.6 }
+  "shell.wallpaper": { "asset": "paper", "fit": "cover", "opacity": 0.6 }
 }
 ```
 
-The eleven slots:
+The thirteen slots:
 
 | Slot | What it decorates |
 | ---- | ----------------- |
-| `shell.background` | Shared wallpaper behind everything. The only full-screen slot. |
-| `home.background` | Overrides the wallpaper on Home. |
+| `shell.wallpaper` | Shared wallpaper behind everything. The only full-screen slot. |
+| `home.wallpaper` | Overrides the wallpaper on Home. |
 | `home.artwork` | The single Home foreground, positioned by Classic or Editorial layout. |
 | `navigation.background` | The navigation bar. |
-| `composer.background` | The input composer. |
+| `composer.background` | Shared outer composer chrome. |
+| `home.composer.background` | Optional artwork inside the Home draft field on phone and Pad; independent of shared composer chrome. |
+| `home.composer.decoration` | Optional transparent artwork overhanging the Home input rim; independent of its clipped background. |
 | `actions.background` | The actions bar. |
 | `tabs.background` | The tab strip. |
 | `cards.decoration` | Cards. |
 | `buttons.primary.background` | Primary buttons. |
-| `emptyState.illustration` | Empty states. Use a square, `contain`-fit image. |
+| `empty.artwork` | Empty states. Use a square, `contain`-fit image. |
 | `launch.artwork` | Optional startup override; omission or null falls back to Home artwork, then branding. |
 
+`home.composer.background` is optional and has no fallback to `composer.background`.
+Omit it or set it to `null` for no additional field decoration. Light/dark and
+compact/regular overrides work as for other slots. By default the image is clipped to the
+field, behind the text and toolbar, and hidden during inline dictation. It adds
+no hit targets or height. It preserves the field's existing base fill. An explicit
+opacity from 0 to 1 is respected; an omitted opacity defaults to 0.18. This
+opt-in slot does not use the generic surface artwork contrast cap. Older apps ignore the
+new slot. Existing themes do not need an empty entry. A transparent frame or
+edge character should leave the central text area clear; `contain` preserves its
+proportions, and separate compact/regular canvases adapt phone and Pad framing.
+By default anything outside the field is clipped. Keep the central draft area, bottom-left
+attachment/parameters controls and bottom-right send control clear. Check actual
+phone and Pad previews in both color modes, including a long multiline draft;
+arbitrary images are not automatically made readable.
+
+The input base fill follows `variants.<mode>.surfaces.backgroundOpacity` (default 1)
+and the reader's saved Interface background opacity override. It is independent of
+the artwork opacity. Keep image centers transparent instead of baking an opaque plate
+into artwork; do not change the theme's base opacity solely to strengthen the decoration.
+
+The image in `home.composer.background` may opt into a bounded `outset` in dp:
+`{"left": 12, "right": 12, "bottom": 8}`. Left/right accept 0..12, bottom 0..8;
+there is no top property. Each edge is optional and defaults to zero. Omission,
+an empty object or all-zero values preserves the original clipped behavior.
+Nonzero outsets extend artwork only into Home's existing margins, without enlarging
+the field, text area, layout height, touch/accessibility targets or voice overlay.
+The field's base-fill opacity is unchanged. This noninteractive artwork still hides
+during dictation. Compact/regular image overrides replace the base image completely:
+specify their own outsets where needed; the edge values are not inherited or merged.
+Other slots accept but ignore this property, including `home.composer.decoration`.
+Keep text and controls clear and inspect phone/Pad with keyboard and voice active.
+Older strict image schemas may reject `outset`; use an App and CLI with this feature
+and verify a supporting release before choosing `minAppVersion`.
+
+When reviewing a changed theme, record the resolved background, outset and decoration
+for light/dark and compact/regular. These slots serve both Classic and Editorial;
+there is no theme layout selector. Check actual phone/Pad screenshots in both layouts
+and modes, with keyboard, long text, options and voice states. Verify the named
+`chrome.parameters` asset separately from `chrome.settings`, and the native sliders
+fallback when no usable parameters asset exists. Keep source validation and native
+evidence separate, identify exact pack versions, and mark untested combinations.
+Limit coverage claims to the themes and combinations actually checked.
+
+`home.composer.decoration` is a separate optional layer for characters, hands or
+light effects extending above the Home input. Its full-field-width canvas is 64 dp
+tall: 48 dp above the upper rim and 16 dp inside it. The rim is at 75% of the canvas
+height. Artwork is clipped to this bounded envelope, not to the field's rounded
+rectangle; it does not enlarge the input or intercept touches/accessibility.
+It disappears during inline dictation. Omission/null draws nothing and does not
+reuse `home.composer.background`. Mode and device overrides, authored opacity
+(default 0.18) and focal points follow the background slot's rules.
+
+Use `fit: "contain"` to keep proportions. A compact transparent character can use
+`focalPoint: {"x": 1, "y": 0}` to rest at the right edge at up to 64 dp high; its
+hands should meet 75% of its image height when it fills that height. For a frame
+spanning the whole input, use transparent compact/regular canvases matching each
+target field width. Keep the lower 16 dp transparent
+except for small hands or trim resting on the rim, and leave nearby content and
+text unobscured. Background textures stay in `home.composer.background`; never
+move them into this overhang. No new manifest image fields are required. Preview
+phone and Pad, both modes, long drafts, the keyboard and active dictation. Generic
+scaffolds omit this slot until suitable transparent artwork is authored; a lower
+slot-coverage count is valid. Older apps safely ignore this slot.
+
 Each slot takes `asset`, plus optional `fit` (`cover`, `contain`, `tile`),
-`opacity` (0..1), and `focalPoint` (`{x, y}`, each 0..1). It may also carry
+`opacity` (0..1), and `focalPoint` (`{x, y}`, each 0..1). Images may carry `outset`
+as described above, consumed only by `home.composer.background`. A slot may also carry
 `compact` and `regular` sub-entries to serve phone and tablet different artwork.
 
 `variantDecorations.light` and `variantDecorations.dark` override `decoration`
@@ -780,8 +851,14 @@ slot is safely optional.
 "icons": { "chrome.back": { "asset": "arrow", "render": "template" } }
 ```
 
-Known glyph names are `chrome.back` and `chrome.send`. `icons` is the one open
-part of the schema: an unknown name is ignored rather than failing the theme, so
+Known glyph names are `chrome.back`, `chrome.send`, `chrome.attach`, `chrome.create`,
+`chrome.scan`, `chrome.settings`, `chrome.parameters`, and `home.arrow`.
+`chrome.parameters` is the Home composer task-options control beside attachment,
+drawn at 18 dp. Give it a sliders/adjustments shape distinct from application
+settings. Missing, null, or unavailable artwork keeps the built-in sliders; the
+App never substitutes the `chrome.settings` asset. Existing themes remain valid.
+
+`icons` accepts open names: an unknown name is ignored rather than failing the theme, so
 an older app keeps its own glyph instead of refusing a newer pack outright. The
 cost is that a typo is silent at runtime, which is why `validate` reports unknown
 names as a warning.
@@ -812,7 +889,15 @@ it back with `"mode": "default"`. This never renames the launcher icon.
 
 `artwork` is the default/hidden switch for the single `home.artwork` foreground.
 Its asset, fit, opacity and mode/width overrides belong to the slot. Both layouts
-draw at most one foreground. `home.background` remains separate wallpaper.
+draw at most one foreground. `home.wallpaper` remains separate wallpaper.
+A full-scene illustration belongs in `home.wallpaper`, or `shell.wallpaper` when
+shared across surfaces. If it already contains the main character, omit or disable
+`home.artwork` in the applicable shared/mode entries to avoid a duplicate foreground
+cutout. Set `homeIdentity.artwork.mode` to `hidden` when the theme should default to
+the scene alone. Keep text/control regions quiet; use compact/regular crops and
+focal points for phone and Pad. The declared gallery preview remains an artwork
+and color cover, not a mock Home screen.
+
 Startup resolves `launch.artwork`, then `home.artwork`, then the brand fallback.
 An explicit null disables only the startup override, allowing the same fallback chain.
 
