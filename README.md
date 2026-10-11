@@ -121,7 +121,11 @@ assets/logo.png             assets/preview.png
 `preview.png` is the gallery cover, 1024×640: the light look on the left half,
 the dark on the right. It is what the website and the app show before anyone
 downloads the pack, and the themes repository will not list a theme without
-one.
+one. Show only the theme artwork, surfaces and colors in this image. Do not bake
+a simulated Home screen, session list, "New session" cards, input fields, toolbar
+icons or other app controls into the gallery cover. Actual App screenshots are
+separate QA evidence; the interactive `preview` command still shows the live theme
+in context.
 
 The point is that the format is **discoverable by deletion**. Every section the
 schema supports is already there, so you find out that per-mode wallpaper, a
@@ -220,7 +224,7 @@ and that is a guard against a decode bomb rather than advice. The number you can
 act on is different: an image is decoded to `width × height × 4` bytes and held
 for as long as its slot is on screen, so a 1254×1254 drawing behind a 44pt
 navigation bar costs 6.3 MB to show a strip it could have filled at a twentieth
-of that. Full-screen artwork (`shell.background`) gets a phone-at-3× budget of
+of that. Full-screen artwork (`shell.wallpaper`) gets a phone-at-3× budget of
 3000px; every other slot is chrome, and 1024px on the longest edge is already
 generous.
 
@@ -745,7 +749,7 @@ Artwork is placed by referencing an asset from a **decoration slot**:
 
 ```jsonc
 "decoration": {
-  "shell.background": { "asset": "paper", "fit": "cover", "opacity": 0.6 }
+  "shell.wallpaper": { "asset": "paper", "fit": "cover", "opacity": 0.6 }
 }
 ```
 
@@ -753,8 +757,8 @@ The thirteen slots:
 
 | Slot | What it decorates |
 | ---- | ----------------- |
-| `shell.background` | Shared wallpaper behind everything. The only full-screen slot. |
-| `home.background` | Overrides the wallpaper on Home. |
+| `shell.wallpaper` | Shared wallpaper behind everything. The only full-screen slot. |
+| `home.wallpaper` | Overrides the wallpaper on Home. |
 | `home.artwork` | The single Home foreground, positioned by Classic or Editorial layout. |
 | `navigation.background` | The navigation bar. |
 | `composer.background` | Shared outer composer chrome. |
@@ -764,7 +768,7 @@ The thirteen slots:
 | `tabs.background` | The tab strip. |
 | `cards.decoration` | Cards. |
 | `buttons.primary.background` | Primary buttons. |
-| `emptyState.illustration` | Empty states. Use a square, `contain`-fit image. |
+| `empty.artwork` | Empty states. Use a square, `contain`-fit image. |
 | `launch.artwork` | Optional startup override; omission or null falls back to Home artwork, then branding. |
 
 `home.composer.background` is optional and has no fallback to `composer.background`.
@@ -856,7 +860,15 @@ it back with `"mode": "default"`. This never renames the launcher icon.
 
 `artwork` is the default/hidden switch for the single `home.artwork` foreground.
 Its asset, fit, opacity and mode/width overrides belong to the slot. Both layouts
-draw at most one foreground. `home.background` remains separate wallpaper.
+draw at most one foreground. `home.wallpaper` remains separate wallpaper.
+A full-scene illustration belongs in `home.wallpaper`, or `shell.wallpaper` when
+shared across surfaces. If it already contains the main character, omit or disable
+`home.artwork` in the applicable shared/mode entries to avoid a duplicate foreground
+cutout. Set `homeIdentity.artwork.mode` to `hidden` when the theme should default to
+the scene alone. Keep text/control regions quiet; use compact/regular crops and
+focal points for phone and Pad. The declared gallery preview remains an artwork
+and color cover, not a mock Home screen.
+
 Startup resolves `launch.artwork`, then `home.artwork`, then the brand fallback.
 An explicit null disables only the startup override, allowing the same fallback chain.
 
