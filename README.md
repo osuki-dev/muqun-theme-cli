@@ -773,7 +773,7 @@ The thirteen slots:
 
 `home.composer.background` is optional and has no fallback to `composer.background`.
 Omit it or set it to `null` for no additional field decoration. Light/dark and
-compact/regular overrides work as for other slots. The image is clipped to the
+compact/regular overrides work as for other slots. By default the image is clipped to the
 field, behind the text and toolbar, and hidden during inline dictation. It adds
 no hit targets or height. It preserves the field's existing base fill. An explicit
 opacity from 0 to 1 is respected; an omitted opacity defaults to 0.18. This
@@ -781,10 +781,24 @@ opt-in slot does not use the generic surface artwork contrast cap. Older apps ig
 new slot. Existing themes do not need an empty entry. A transparent frame or
 edge character should leave the central text area clear; `contain` preserves its
 proportions, and separate compact/regular canvases adapt phone and Pad framing.
-Anything outside the field is clipped. Keep the central draft area, bottom-left
+By default anything outside the field is clipped. Keep the central draft area, bottom-left
 attachment/parameters controls and bottom-right send control clear. Check actual
 phone and Pad previews in both color modes, including a long multiline draft;
 arbitrary images are not automatically made readable.
+
+The image in `home.composer.background` may opt into a bounded `outset` in dp:
+`{"left": 12, "right": 12, "bottom": 8}`. Left/right accept 0..12, bottom 0..8;
+there is no top property. Each edge is optional and defaults to zero. Omission,
+an empty object or all-zero values preserves the original clipped behavior.
+Nonzero outsets extend artwork only into Home's existing margins, without enlarging
+the field, text area, layout height, touch/accessibility targets or voice overlay.
+The field's base-fill opacity is unchanged. This noninteractive artwork still hides
+during dictation. Compact/regular image overrides replace the base image completely:
+specify their own outsets where needed; the edge values are not inherited or merged.
+Other slots accept but ignore this property, including `home.composer.decoration`.
+Keep text and controls clear and inspect phone/Pad with keyboard and voice active.
+Older strict image schemas may reject `outset`; use an App and CLI with this feature
+and verify a supporting release before choosing `minAppVersion`.
 
 `home.composer.decoration` is a separate optional layer for characters, hands or
 light effects extending above the Home input. Its full-field-width canvas is 64 dp
@@ -808,7 +822,8 @@ scaffolds omit this slot until suitable transparent artwork is authored; a lower
 slot-coverage count is valid. Older apps safely ignore this slot.
 
 Each slot takes `asset`, plus optional `fit` (`cover`, `contain`, `tile`),
-`opacity` (0..1), and `focalPoint` (`{x, y}`, each 0..1). It may also carry
+`opacity` (0..1), and `focalPoint` (`{x, y}`, each 0..1). Images may carry `outset`
+as described above, consumed only by `home.composer.background`. A slot may also carry
 `compact` and `regular` sub-entries to serve phone and tablet different artwork.
 
 `variantDecorations.light` and `variantDecorations.dark` override `decoration`

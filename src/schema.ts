@@ -122,6 +122,12 @@ const imageSchema = z.strictObject({
   focalPoint: z
     .strictObject({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })
     .optional(),
+  // Only Home composer background artwork consumes these bounded dp outsets.
+  outset: z.strictObject({
+    left: z.number().min(0).max(12).optional(),
+    right: z.number().min(0).max(12).optional(),
+    bottom: z.number().min(0).max(8).optional(),
+  }).optional(),
 });
 const slotSchema = imageSchema
   .extend({

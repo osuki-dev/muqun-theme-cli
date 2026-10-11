@@ -362,3 +362,49 @@ test.each(['home.composer.background', 'home.composer.decoration'] as const)(
   expect(parse(createThemeStarter()).decoration?.[slot]).toBeUndefined();
   expect(() => parse({ ...raw, assets: {} })).toThrow('Unknown asset');
 });
+
+test('bounded image outsets survive mode/device overrides without adding defaults', () => {
+  const raw = {
+    ...createThemeStarter(),
+    assets: { frame: { path: 'assets/frame.png' } },
+    decoration: {
+      'home.composer.background': {
+        asset: 'frame', outset: { left: 12, right: 12, bottom: 8 },
+        compact: { asset: 'frame', outset: { right: 0.5 } },
+        regular: { asset: 'frame' },
+      },
+      // Accepted uniformly; only the Home field renderer consumes outset.
+      'home.composer.decoration': { asset: 'frame', outset: {} },
+      'shell.wallpaper': { asset: 'frame', outset: { left: 0 } },
+    },
+    variantDecorations: {
+      dark: { 'home.composer.background': { asset: 'frame', outset: { bottom: 0 } } },
+    },
+  };
+  const parsed = parse(raw);
+  expect(parsed.decoration).toEqual(raw.decoration);
+  expect(parsed.variantDecorations).toEqual(raw.variantDecorations);
+  expect(parsed.decoration?.['home.composer.background']?.regular?.outset).toBeUndefined();
+});
+
+test('image outset validates every edge and rejects unsupported properties at every level', () => {
+  const invalid = [
+    { left: -0.01 }, { left: 12.01 }, { right: -1 }, { right: 13 },
+    { bottom: -1 }, { bottom: 8.01 }, { top: 1 }, { left: '2' },
+    { left: null }, { right: Infinity }, null, [],
+  ];
+  for (const outset of invalid) {
+    const image = { asset: 'frame', outset };
+    for (const declaration of [
+      { decoration: { 'home.composer.background': image } },
+      { decoration: { 'home.composer.background': { asset: 'frame', compact: image } } },
+      { decoration: { 'home.composer.background': { asset: 'frame', regular: image } } },
+      { variantDecorations: { dark: { 'home.composer.background': image } } },
+    ]) {
+      expect(() => parse({
+        ...createThemeStarter(), assets: { frame: { path: 'assets/frame.png' } },
+        ...declaration,
+      })).toThrow();
+    }
+  }
+});
