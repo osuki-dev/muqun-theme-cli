@@ -104,7 +104,8 @@ export function createThemeScaffold(slug?: string): ThemeScaffold {
     preview: 'preview',
 
     // Shared across both modes. A slot omitted here inherits nothing and simply
-    // draws no artwork, so every slot the schema has is present and wired.
+    // draws no artwork. The optional overhanging Home decoration needs authored
+    // transparent artwork and is deliberately omitted from this generic scaffold.
     decoration: {
       'home.wallpaper': { asset: 'home-wallpaper', fit: 'cover' as const },
       'navigation.background': { asset: 'navigation', fit: 'cover' as const },

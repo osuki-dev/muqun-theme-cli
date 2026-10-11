@@ -58,7 +58,7 @@ test('the scaffold fills in every section the schema supports', () => {
   expect(manifest.license).toBeDefined();
 });
 
-test('every decoration slot the schema has is wired to a declared asset', () => {
+test('decoration slots have examples except the optional authored Home overhang', () => {
   const { manifest } = createThemeScaffold();
   const shared = new Set(Object.keys(manifest.decoration ?? {}));
   const perMode = new Set([
@@ -68,6 +68,12 @@ test('every decoration slot the schema has is wired to a declared asset', () => 
   // `THEME_SLOTS`, not the schema's keys: the schema accepts any slot name
   // now, so the closed list is the only record of what the app actually draws.
   for (const slot of THEME_SLOTS) {
+    // A generic opaque placeholder above the field would obscure nearby content.
+    // This slot needs purpose-made transparent artwork before it is enabled.
+    if (slot === 'home.composer.decoration') {
+      expect(shared.has(slot) || perMode.has(slot)).toBe(false);
+      continue;
+    }
     expect(shared.has(slot) || perMode.has(slot)).toBe(true);
   }
   // And both known glyphs are replaced, so an author sees the mechanism.

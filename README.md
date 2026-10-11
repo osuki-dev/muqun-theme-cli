@@ -749,7 +749,7 @@ Artwork is placed by referencing an asset from a **decoration slot**:
 }
 ```
 
-The twelve slots:
+The thirteen slots:
 
 | Slot | What it decorates |
 | ---- | ----------------- |
@@ -759,6 +759,7 @@ The twelve slots:
 | `navigation.background` | The navigation bar. |
 | `composer.background` | Shared outer composer chrome. |
 | `home.composer.background` | Optional artwork inside the Home draft field on phone and Pad; independent of shared composer chrome. |
+| `home.composer.decoration` | Optional transparent artwork overhanging the Home input rim; independent of its clipped background. |
 | `actions.background` | The actions bar. |
 | `tabs.background` | The tab strip. |
 | `cards.decoration` | Cards. |
@@ -780,6 +781,27 @@ Anything outside the field is clipped. Keep the central draft area, bottom-left
 attachment/parameters controls and bottom-right send control clear. Check actual
 phone and Pad previews in both color modes, including a long multiline draft;
 arbitrary images are not automatically made readable.
+
+`home.composer.decoration` is a separate optional layer for characters, hands or
+light effects extending above the Home input. Its full-field-width canvas is 64 dp
+tall: 48 dp above the upper rim and 16 dp inside it. The rim is at 75% of the canvas
+height. Artwork is clipped to this bounded envelope, not to the field's rounded
+rectangle; it does not enlarge the input or intercept touches/accessibility.
+It disappears during inline dictation. Omission/null draws nothing and does not
+reuse `home.composer.background`. Mode and device overrides, authored opacity
+(default 0.18) and focal points follow the background slot's rules.
+
+Use `fit: "contain"` to keep proportions. A compact transparent character can use
+`focalPoint: {"x": 1, "y": 0}` to rest at the right edge at up to 64 dp high; its
+hands should meet 75% of its image height when it fills that height. For a frame
+spanning the whole input, use transparent compact/regular canvases matching each
+target field width. Keep the lower 16 dp transparent
+except for small hands or trim resting on the rim, and leave nearby content and
+text unobscured. Background textures stay in `home.composer.background`; never
+move them into this overhang. No new manifest image fields are required. Preview
+phone and Pad, both modes, long drafts, the keyboard and active dictation. Generic
+scaffolds omit this slot until suitable transparent artwork is authored; a lower
+slot-coverage count is valid. Older apps safely ignore this slot.
 
 Each slot takes `asset`, plus optional `fit` (`cover`, `contain`, `tile`),
 `opacity` (0..1), and `focalPoint` (`{x, y}`, each 0..1). It may also carry
